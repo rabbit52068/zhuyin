@@ -2,6 +2,7 @@
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 let P=store.get('zy-progress',{stars:{}});
+P.acc=P.acc||{}; // per-lesson record for parents: {m: mistakes, n: questions, t: time}
 let S=store.get('zy-settings',{rate:0.8,unlockAll:false});
 const save=()=>{store.set('zy-progress',P);store.set('zy-settings',S)};
 const totalStars=()=>Object.values(P.stars).reduce((a,b)=>a+b,0);
@@ -89,7 +90,7 @@ const sfx={ok:()=>tone([[660,.12],[880,.12],[1320,.25]]),no:()=>tone([[220,.18,'
   pop:()=>tone([[900,.06,'sine',.15],[1400,.08,'sine',.1]]),win:()=>tone([[523,.15],[659,.15],[784,.15],[1047,.4]])};
 
 /* ======================= HOME: PATH ======================= */
-const OFFS=[0,55,85,55,0,-55,-85,-55];
+const OFFS=[0,45,70,45,0,-45,-70,-45];
 let tab='path';
 function render(){
   $('#starCount').textContent=totalStars();
@@ -179,7 +180,7 @@ function startLesson(id){
   document.body.appendChild(layer);
   document.body.style.overflow='hidden';
   LS={L,steps:buildSteps(L),i:0,mistakes:0,layer};
-  layer.querySelector('#xBtn').onclick=quitLesson;
+  layer.querySelector('#xBtn').onclick=askQuit;
   layer.querySelector('#fbGo').onclick=()=>{if(!LS||!LS.fbAt||Date.now()-LS.fbAt<400)return;LS.fbAt=0;next()};
   showStep();
 }
@@ -188,25 +189,57 @@ let STEP=0;
 const live=t=>!!LS&&t===STEP;
 function later(ms,fn){const t=STEP;setTimeout(()=>{if(live(t))fn()},ms)}
 function stopVoice(){STEP++;try{speechSynthesis.cancel()}catch(e){}}
+function askQuit(){
+  if(!LS||LS.layer.querySelector('.ask'))return;
+  if(LS.done)return quitLesson();
+  const t=STEP;
+  const ask=h(`<div class="ask" role="alertdialog" aria-label="要離開嗎？"><div class="box">${catSVG('think')}
+    <p>要離開嗎？</p>
+    <div class="row"><button class="btn go" id="askStay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>繼續玩</button>
+    <button class="btn ghost" id="askLeave"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4H6v16h8M10 12h10M17 8l4 4-4 4"/></svg>離開</button></div></div></div>`);
+  LS.layer.appendChild(ask);
+  const stay=ask.querySelector('#askStay');stay.focus({preventScroll:true});
+  stay.onclick=()=>ask.remove();
+  ask.querySelector('#askLeave').onclick=quitLesson;
+  ask.onkeydown=e=>{if(e.key==='Escape')ask.remove()};
+  speak('要離開嗎',{rate:1});
+}
 function quitLesson(){stopVoice();LS.layer.remove();LS=null;document.body.style.overflow='';render()}
 function setProg(){LS.layer.querySelector('.prog i').style.width=(LS.i/LS.steps.length*100)+'%'}
 function showStep(){
   setProg(); stopVoice();
   const st=LS.steps[LS.i], stage=LS.layer.querySelector('#stage');
   stage.innerHTML=''; stage.scrollTop=0;
-  const fb=LS.layer.querySelector('#fb');fb.classList.remove('show');fb.inert=true;LS.fbAt=0;
+  const fb=LS.layer.querySelector('#fb');fb.classList.remove('show');fb.inert=true;LS.fbAt=0;LS.demo=false;
   stage.setAttribute('tabindex','-1');stage.focus({preventScroll:true});
   STEPS[st.t](stage,st);
 }
 async function correct(text){
-  sfx.ok();
-  const p=text||pick(PRAISE);
+  /* LS.demo: the game showed the answer after two misses (1-3), so no win sound and a calmer line */
+  if(!LS.demo) sfx.ok();
+  const p=LS.demo?'答案在這裡！'+(text?text.replace(/^對！/,''):'下次一定可以！'):(text||pick(PRAISE));
   LS.layer.querySelector('#fbTxt').textContent=p;
   const fb=LS.layer.querySelector('#fb');fb.inert=false;fb.classList.add('show');LS.fbAt=Date.now();
   LS.layer.querySelector('#fbGo').focus({preventScroll:true});
   later(350,()=>speak(p.replace('！',''),{rate:1}));
 }
-function wrong(){LS.mistakes++;sfx.no()}
+const ENCOURAGE=['再想想看！','沒關係，再試一次！','慢慢來，你可以的！'];
+function catMood(mood){const c=LS&&LS.layer.querySelector('#stage .prompt svg');if(c)c.outerHTML=catSVG(mood)}
+/* A miss: thinking face and a kind line. count=false for tracing, which never costs a mistake (1-5).
+   Resolves true if the step is still on screen, so callers can replay the sound after the line. */
+function wrong({count=true}={}){
+  if(count)LS.mistakes++;
+  sfx.no();catMood('think');
+  const t=STEP;
+  return new Promise(r=>setTimeout(async()=>{
+    if(live(t))await speak(pick(ENCOURAGE).replace(/！/g,''),{rate:1});
+    if(live(t))catMood('happy');
+    r(live(t));
+  },250));
+}
+/* Read the question aloud, then play its sounds, one after another (1-1). Strings are spoken; functions return a promise. */
+function voiceSeq(items){const t=STEP;(async()=>{await wait(300);
+  for(const it of items){if(!live(t))return;await (typeof it==='string'?speak(it,{rate:1}):it());if(!live(t))return;await wait(200)}})()}
 function next(){
   if(!LS||LS.done)return;
   LS.i++;
@@ -216,33 +249,39 @@ function next(){
 function finish(){
   if(LS.done)return; LS.done=true;
   setProg();
-  const stars=LS.mistakes===0?3:LS.mistakes<=2?2:1;
+  const stars=3, perfect=LS.mistakes===0; // finishing earns all 3 stars (1-4)
   const id=LS.L.id;
-  P.stars[id]=Math.max(P.stars[id]||0,stars); save();
+  P.stars[id]=3; P.acc[id]={m:LS.mistakes,n:LS.steps.length,t:Date.now()}; save();
   const col=LS.layer.querySelector('.col');
   const fb=LS.layer.querySelector('#fb');fb.classList.remove('show');fb.inert=true;
   col.querySelector('.stage').outerHTML=`<div class="result">${catSVG('happy').replace('<svg','<svg class="big cat-bounce"')}
-     <h2>${stars===3?'完美過關！':stars===2?'做得很好！':'完成了！'}</h2>
+     <h2>${perfect?'完美過關！':'完成了！你好棒！'}</h2>
      <div class="bigstars">${[1,2,3].map(i=>`<i class="${i<=stars?'on':''}" style="animation-delay:${.2+i*.25}s">★</i>`).join('')}</div>
      <p>${LS.L.type==='sym'?`你學會了 <span class="zy" style="font-size:1.5em;color:var(--sky)">${LS.L.s}</span>`:'又往前走了一站'}</p>
      <button class="btn go" id="doneBtn" style="margin-top:10px">回到地圖</button></div>`;
   const done=col.querySelector('#doneBtn');done.onclick=quitLesson;done.focus({preventScroll:true});
   sfx.win(); confetti();
-  later(400,()=>speak(stars===3?'完美過關':'做得很好',{rate:1}));
+  later(400,()=>speak(perfect?'完美過關':'完成了，你好棒',{rate:1}));
 }
 
 /* ---------- step renderers ---------- */
 function speakerBtn(fn,sm){const b=h(`<button class="speak ${sm?'sm':''}" aria-label="再聽一次">${SPK}</button>`);
-  b.onclick=()=>{b.classList.remove('playing');void b.offsetWidth;b.classList.add('playing');fn()};return b}
-function prompt(text,mood='think'){return h(`<div class="prompt">${catSVG(mood)}<span>${text}</span></div>`)}
+  b.play=()=>{b.classList.remove('playing');void b.offsetWidth;b.classList.add('playing');return fn()};
+  b.onclick=()=>{b.play()};return b}
+function prompt(text,mood='happy'){return h(`<div class="prompt">${catSVG(mood)}<span>${text}</span></div>`)}
 function optionRow(items,target,onRight,{wide=false,label=null,render=null}={}){
-  const row=h(`<div class="opts"></div>`);let done=false;
+  const row=h(`<div class="opts"></div>`);let done=false,miss=0,tb=null;
+  const win=b=>{done=true;b.classList.remove('glow');b.classList.add('ok');row.querySelectorAll('.opt').forEach(o=>{if(o!==b)o.classList.add('dim')})};
   shuffle(items).forEach(it=>{
     const b=h(`<button class="opt ${wide?'wide':''}"></button>`);
     b.innerHTML=render?render(it):it;
-    b.onclick=()=>{if(done)return;
-      if(it===target){done=true;b.classList.add('ok');row.querySelectorAll('.opt').forEach(o=>{if(o!==b)o.classList.add('dim')});onRight&&onRight()}
-      else{b.classList.remove('no');void b.offsetWidth;b.classList.add('no');wrong();label&&label()}};
+    if(it===target)tb=b;
+    b.onclick=async()=>{if(done)return;
+      if(it===target){win(b);onRight&&onRight();return}
+      b.classList.remove('no');void b.offsetWidth;b.classList.add('no');miss++;
+      if(miss>=2){win(tb);const ok=await wrong();if(ok){LS.demo=true;onRight&&onRight()}return} // 1-3: show the answer, move on
+      tb.classList.add('glow'); // 1-2: hint the right one
+      if(await wrong())label&&label()};
     row.appendChild(b)});
   return row;
 }
@@ -259,20 +298,20 @@ const STEPS={
   stage.append(ex);
   stage.append(h(`<p class="hint">「${s}」就在「${wordText(s)}」裡面，紅色的就是它</p>`));
   const go=h(`<button class="btn go">我記住了</button>`);go.onclick=next;stage.append(go);
-  later(300,()=>{sp.click();later(1300,()=>speak(`${SYM[s].say}，${wordText(s)}的${SYM[s].say}`))});
+  voiceSeq(['這是新朋友！',()=>sp.play(),`${SYM[s].say}，${wordText(s)}的${SYM[s].say}`]);
  },
  listen(stage,{s,peers}){
   stage.append(prompt('聽一聽，是哪一個注音？'));
   const sp=speakerBtn(()=>saySym(s));stage.append(sp);
   stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>correct(),{label:()=>later(400,()=>saySym(s))}));
-  later(350,()=>sp.click());
+  voiceSeq(['聽一聽，是哪一個注音？',()=>sp.play()]);
  },
  picture(stage,{s,peers}){
   stage.append(prompt(`「${wordText(s)}」少了哪一個注音？`));
   const ex=h(`<button class="example" aria-label="聽例詞"><span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{blank:s})}</button>`);
   ex.onclick=()=>speak(wordText(s));stage.append(ex);
   stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>{ex.innerHTML=`<span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{hl:s})}`;correct()}));
-  later(350,()=>speak(wordText(s)));
+  voiceSeq([`${wordText(s)}，少了哪一個注音？`]);
  },
  trace(stage,{s}){
   stage.append(prompt(`沿著藍色的字，寫寫看「${s}」`,'happy'));
@@ -283,7 +322,7 @@ const STEPS={
   const clr=h(`<button class="btn ghost">擦掉</button>`), ok=h(`<button class="btn">寫好了</button>`);
   row.append(speakerBtn(()=>saySym(s),true),clr,ok);stage.append(row);
   const g=box.querySelector('.g'), u=box.querySelector('.u'), gc=g.getContext('2d'), uc=u.getContext('2d');
-  let W=0, strokes=[], cur=null, passed=false;
+  let W=0, strokes=[], cur=null, passed=false, fails=0;
   const dpr=Math.max(1,window.devicePixelRatio||1);
   async function setup(){
     W=box.clientWidth; [g,u].forEach(c=>{c.width=c.height=W*dpr});
@@ -303,13 +342,15 @@ const STEPS={
   ok.onclick=()=>{if(passed)return;
     if(!strokes.length){hint.textContent='先用手指沿著藍色的字畫畫看';return}
     const {cov,prec}=traceScore(s,strokes,W,lw());
-    if(cov>=.6&&prec>=.6){passed=true;redraw();hint.textContent='';correct(cov>.8?'寫得好漂亮！':'寫得很好！')}
-    else{wrong();hint.textContent=cov<.6?'還有一些地方沒有寫到，再試一次！':'要沿著藍色的字寫喔，再試一次！';setTimeout(()=>{strokes=[];redraw()},700)}
+    if(cov>=.45&&prec>=.5){passed=true;redraw();hint.textContent='';correct(cov>.75?'寫得好漂亮！':'寫得很好！')}
+    else if(++fails>=2){passed=true;redraw();hint.textContent='';correct('很努力喔！我們繼續！')}
+    else{wrong({count:false});hint.textContent=cov<.45?'還有一些地方沒有寫到，再試一次！':'要沿著藍色的字寫喔，再試一次！';setTimeout(()=>{strokes=[];redraw()},700)}
   };
   requestAnimationFrame(setup);
+  voiceSeq(['沿著藍色的字，寫寫看',()=>saySym(s)]);
  },
  bubbles(stage,{s,peers}){
-  const need=3;let got=0;
+  const need=3;let got=0,miss=0;
   stage.append(prompt('把所有的這個注音戳破！'));
   const tg=h(`<div class="target"><span class="zy">${s}</span><span class="count">0 / ${need}</span></div>`);
   tg.prepend(speakerBtn(()=>saySym(s),true));stage.append(tg);
@@ -322,9 +363,11 @@ const STEPS={
     b.onclick=()=>{if(got>=need||b.classList.contains('pop'))return;
       if(it===s){sfx.pop();b.classList.add('pop');got++;tg.querySelector('.count').textContent=`${got} / ${need}`;
         if(got===need){pond.classList.add('done');later(300,()=>correct('全部找到了！'))}}
-      else{b.classList.remove('no');void b.offsetWidth;b.classList.add('no');wrong();later(300,()=>saySym(s))}};
+      else{b.classList.remove('no');void b.offsetWidth;b.classList.add('no');
+        if(++miss>=2)pond.querySelectorAll('.bub').forEach(x=>{if(x.textContent===s&&!x.classList.contains('pop'))x.classList.add('glow')});
+        wrong().then(ok=>{if(ok)later(300,()=>saySym(s))})}};
     pond.appendChild(b)});
-  later(350,()=>saySym(s));
+  voiceSeq(['把所有的這個注音戳破！',()=>saySym(s)]);
  },
  blendDemo(stage,{it:[a,b,ch]}){
   stage.append(prompt('兩個注音拼在一起，會變成什麼？','happy'));
@@ -333,6 +376,7 @@ const STEPS={
   stage.append(bl);
   const res=h(`<button class="res" aria-label="聽">${wz(ch,a+b)}</button>`);res.onclick=()=>speak(ch);stage.append(res);
   const go=h(`<button class="btn">拼拼看！</button>`);stage.append(go);
+  voiceSeq(['兩個注音拼在一起，會變成什麼？']);
   let played=false;
   go.onclick=async()=>{
     if(played){next();return}
@@ -347,7 +391,7 @@ const STEPS={
   const sp=speakerBtn(()=>speak(ch,{rate:.7}));stage.append(sp);
   const others=shuffle(set.filter(x=>x[2]!==ch&&x[0]+x[1]!==a+b)).slice(0,2).map(x=>x[0]+x[1]);
   stage.append(optionRow([a+b,...others],a+b,()=>{correct(`對！${a}${b}，${ch}`)},{wide:true,label:()=>later(400,()=>speak(ch,{rate:.7}))}));
-  later(350,()=>sp.click());
+  voiceSeq(['聽一聽，是哪一個拼音？',()=>sp.play()]);
  },
  blendBuild(stage,{it:[a,b,ch]}){
   stage.append(prompt(`「${ch}」前面要放哪一個注音？`));
@@ -356,7 +400,7 @@ const STEPS={
   const sp=speakerBtn(()=>speak(ch,{rate:.7}),true);stage.append(sp);
   const opts=[a,...distractors(a,2,['ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄍ','ㄎ','ㄏ','ㄓ'])];
   stage.append(optionRow(opts,a,async()=>{bl.querySelector('.a').textContent=a;correct(`${a}${b}，${ch}`)},{label:()=>later(400,()=>speak(ch,{rate:.7}))}));
-  later(350,()=>sp.click());
+  voiceSeq([`${ch}，前面要放哪一個注音？`]);
  },
  toneDemo(stage,{set}){
   stage.append(prompt('同一個拼音，有四種唱法，點點看！','happy'));
@@ -366,7 +410,7 @@ const STEPS={
     b.onclick=()=>speak(ch,{rate:.7});g.appendChild(b)});
   stage.append(g);
   const go=h(`<button class="btn go">我聽完了</button>`);go.onclick=next;stage.append(go);
-  {const t=STEP;(async()=>{await wait(300);for(const [ch] of set){if(!live(t))return;await speak(ch,{rate:.7});await wait(250)}})();}
+  voiceSeq(['同一個拼音，有四種唱法',...set.map(([ch])=>()=>speak(ch,{rate:.7}))]);
  },
  tonePick(stage,{set,k}){
   const [ch,zy]=set[k];
@@ -376,7 +420,7 @@ const STEPS={
   stage.append(optionRow([0,1,2,3],k,()=>correct(`對！「${ch}」是${TONE_NAME[k]}`),
     {wide:true,render:i=>`<span>${zc(base+TONES[i]).replace('class="zc"','class="zc" style="font-size:1.7rem"')}<span class="lab">${TONE_NAME[i]}</span></span>`,
      label:()=>later(400,()=>speak(ch,{rate:.7}))}));
-  later(350,()=>sp.click());
+  voiceSeq(['聽一聽，是第幾聲？',()=>sp.play()]);
  },
 };
 
@@ -415,6 +459,25 @@ function confetti(){
 }
 
 /* ======================= SETTINGS ======================= */
+function lessonName(L){const u=UNITS[L.ui];
+  return L.type==='sym'?`認識 ${L.s}`:L.type==='review'?`複習・${u.name}`:L.type==='blend'?`拼音 ${u.lessons.indexOf(L.id)+1}`:`聲調 ${u.lessons.indexOf(L.id)+1}`}
+function recordHTML(){
+  const rows=Object.entries(P.acc).sort((a,b)=>b[1].t-a[1].t).slice(0,5);
+  if(!rows.length)return '<div class="set"><span>最近的課<small>還沒有紀錄</small></span></div>';
+  return `<div class="set rec"><span>最近的課<small>每課都給 3 顆星；這裡記錄答錯幾次</small></span></div><ul class="rec-list">${
+    rows.map(([id,r])=>`<li><span>${lessonName(LESSONS[id])}</span><b>${r.m?`答錯 ${r.m} 次`:'全對'}</b></li>`).join('')}</ul>`}
+/* 1-7: a sum a 4-year-old cannot do keeps settings for grown-ups */
+function parentGate(then){
+  const a=11+(Math.random()*8|0),b=3+(Math.random()*6|0),ans=a+b;
+  const opts=shuffle([ans,ans+1+(Math.random()*3|0),ans-1-(Math.random()*3|0)]);
+  const sh=h(`<div class="sheet"><div class="box" role="dialog" aria-label="家長確認">
+    <h3>家長確認</h3><p class="gate-q">${a} ＋ ${b} ＝ ？</p>
+    <div class="row">${opts.map(o=>`<button class="btn ghost gate-o">${o}</button>`).join('')}</div>
+    <button class="btn wide" id="gateX">取消</button></div></div>`);
+  sh.querySelectorAll('.gate-o').forEach(btn=>btn.onclick=()=>{sh.remove();if(+btn.textContent===ans)then()});
+  sh.querySelector('#gateX').onclick=()=>sh.remove();sh.onclick=e=>{if(e.target===sh)sh.remove()};
+  document.body.appendChild(sh);sh.querySelector('.gate-o').focus({preventScroll:true});
+}
 function openSettings(){
   let armed=false;
   const sh=h(`<div class="sheet"><div class="box" role="dialog" aria-label="家長設定">
@@ -422,6 +485,7 @@ function openSettings(){
     <div class="set"><span>發音速度<small>給剛開始學的孩子用「慢」</small></span><div class="seg" id="rate">
       <button data-v="0.6">慢</button><button data-v="0.8">中</button><button data-v="1">快</button></div></div>
     <div class="set"><span>全部解鎖<small>可以直接跳到任何一課</small></span><button class="sw" role="switch" id="ul" aria-label="全部解鎖"></button></div>
+    ${recordHTML()}
     <div class="set"><span>清除學習紀錄<small>星星和進度會回到一開始</small></span><button class="btn ghost" id="rst" style="min-width:0;padding:10px 14px;font-size:.95rem">清除</button></div>
     ${hasZh?'':'<div class="warn">沒有找到中文語音：請在系統設定加入「中文（台灣）」語音，或改用 Chrome、Edge、Safari。</div>'}
     <button class="btn wide" id="cls">好了</button></div></div>`);
@@ -430,7 +494,7 @@ function openSettings(){
   sh.querySelector('#ul').onclick=()=>{S.unlockAll=!S.unlockAll;save();sync()};
   const rst=sh.querySelector('#rst');
   rst.onclick=()=>{if(!armed){armed=true;rst.textContent='再按一次確定';rst.style.color='var(--coral-d)';return}
-    P={stars:{}};save();rst.textContent='已清除';renderPath.scrolled=0};
+    P={stars:{},acc:{}};save();rst.textContent='已清除';renderPath.scrolled=0};
   const close=()=>{sh.remove();render()};
   sh.querySelector('#cls').onclick=close;sh.onclick=e=>{if(e.target===sh)close()};
   sync();document.body.appendChild(sh);
@@ -440,5 +504,5 @@ function openSettings(){
 document.querySelector('.cat-mini').outerHTML=catSVG('happy').replace('<svg','<svg class="cat-mini"');
 $('#tabPath').onclick=()=>{tab='path';renderPath.scrolled=0;render();scrollTo(0,0)};
 $('#tabChart').onclick=()=>{tab='chart';render();scrollTo(0,0)};
-$('#setBtn').onclick=openSettings;
+$('#setBtn').onclick=()=>parentGate(openSettings);
 render();
