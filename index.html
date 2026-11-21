@@ -1,3 +1,7 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>注音小學堂</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -10,7 +14,7 @@
   --sky:#2F7BF5; --sky-d:#1C5BC7; --leaf:#22B46B; --leaf-d:#168A50;
   --sun:#FFC23A; --sun-d:#D99A0B; --coral:#FF5F5F; --coral-d:#D43D3D;
   --grape:#8A68EE; --grape-d:#6646CC; --lock:#CBD7E8; --lock-d:#A8B7CD;
-  --guide:#D9E6F7; --ink-stroke:#1D2B4F; --cat:#FF9A3C; --cat-d:#DE7414; --cat-belly:#FFE3C2;
+  --guide:#B9D2F2; --ink-stroke:#1D2B4F; --cat:#FF9A3C; --cat-d:#DE7414; --cat-belly:#FFE3C2;
   --ok-bg:#DDF7E8; --no-bg:#FFE3E3; --on-color:#FFFFFF;
   --f-ui:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --f-zy:"LXGW WenKai TC","BiauKai","DFKai-SB","Kaiti TC","STKaiti",serif;
@@ -19,12 +23,12 @@
   --bg:#0E1830; --surface:#18264A; --ink:#EAF1FF; --muted:#9DADCF; --line:#2B3C68;
   --sky:#5A9BFF; --sky-d:#336FD0; --leaf:#38CC82; --leaf-d:#1F9659; --sun:#FFD15A; --sun-d:#C9970F;
   --coral:#FF7676; --coral-d:#C94646; --grape:#A287FF; --grape-d:#7558D8; --lock:#34456F; --lock-d:#243358;
-  --guide:#2C3D69; --ink-stroke:#FFE7A8; --cat-belly:#FFE3C2; --ok-bg:#163D2C; --no-bg:#4A1F27; color-scheme:dark}}
+  --guide:#3E5A94; --ink-stroke:#FFE7A8; --cat-belly:#FFE3C2; --ok-bg:#163D2C; --no-bg:#4A1F27; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0E1830; --surface:#18264A; --ink:#EAF1FF; --muted:#9DADCF; --line:#2B3C68;
   --sky:#5A9BFF; --sky-d:#336FD0; --leaf:#38CC82; --leaf-d:#1F9659; --sun:#FFD15A; --sun-d:#C9970F;
   --coral:#FF7676; --coral-d:#C94646; --grape:#A287FF; --grape-d:#7558D8; --lock:#34456F; --lock-d:#243358;
-  --guide:#2C3D69; --ink-stroke:#FFE7A8; --cat-belly:#FFE3C2; --ok-bg:#163D2C; --no-bg:#4A1F27; color-scheme:dark}
+  --guide:#3E5A94; --ink-stroke:#FFE7A8; --cat-belly:#FFE3C2; --ok-bg:#163D2C; --no-bg:#4A1F27; color-scheme:dark}
 
 *,*::before,*::after{box-sizing:border-box}
 html,body{height:100%}
@@ -72,6 +76,7 @@ main{flex:1;padding-block:8px 110px}
 .stars{position:absolute;bottom:-26px;left:50%;transform:translateX(-50%);display:flex;gap:1px;font-size:.85rem;white-space:nowrap}
 .stars i{font-style:normal;color:var(--lock-d)}
 .stars i.on{color:var(--sun-d)}
+.node-wrap.has-tip{margin-top:46px}
 .start-tip{position:absolute;bottom:calc(100% + 12px);left:50%;transform:translateX(-50%);background:var(--surface);border:2px solid var(--line);color:var(--c);
   font-weight:900;padding:6px 12px;border-radius:12px;white-space:nowrap;animation:bob 1.2s ease-in-out infinite;font-size:.95rem}
 .start-tip::after{content:"";position:absolute;top:100%;left:50%;margin-left:-7px;border:7px solid transparent;border-top-color:var(--line)}
@@ -116,7 +121,8 @@ main{flex:1;padding-block:8px 110px}
 
 .bigcard{background:var(--surface);border:3px solid var(--line);border-bottom-width:8px;border-radius:32px;width:min(260px,72vw);aspect-ratio:1;display:grid;place-items:center;position:relative;max-width:100%}
 .bigcard .s{font-family:var(--f-zy);font-size:min(170px,46vw);line-height:1;font-weight:700;color:var(--sky)}
-.bigcard .speak{position:absolute;right:-14px;bottom:-14px}
+.cardrow{display:flex;flex-direction:column;align-items:center;gap:14px}
+#stage:focus{outline:none}
 .example{display:flex;align-items:center;gap:14px;background:var(--surface);border:2px solid var(--line);border-radius:22px;padding:10px 18px}
 .example .em{font-size:3rem;line-height:1}
 
@@ -144,8 +150,8 @@ main{flex:1;padding-block:8px 110px}
 .trace{position:relative;width:min(300px,78vw);aspect-ratio:1;max-width:100%;background:var(--surface);border:3px solid var(--line);border-bottom-width:7px;border-radius:28px;touch-action:none;overflow:hidden}
 .trace canvas{position:absolute;inset:0;width:100%;height:100%}
 .trace .cross{position:absolute;inset:0;background:
-  linear-gradient(var(--line),var(--line)) center/100% 2px no-repeat,
-  linear-gradient(var(--line),var(--line)) center/2px 100% no-repeat;opacity:.6}
+  repeating-linear-gradient(90deg,var(--line) 0 8px,transparent 8px 16px) center/100% 2px no-repeat,
+  repeating-linear-gradient(0deg,var(--line) 0 8px,transparent 8px 16px) center/2px 100% no-repeat;opacity:.9}
 .row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 .btn{min-width:130px;padding:14px 22px;border-radius:18px;font-weight:900;font-size:1.1rem;color:var(--on-color);background:var(--c,var(--sky));box-shadow:0 5px 0 var(--cd,var(--sky-d));letter-spacing:.05em}
 .btn:active{transform:translateY(4px);box-shadow:0 1px 0 var(--cd,var(--sky-d))}
@@ -434,7 +440,7 @@ function renderPath(m){
       w.appendChild(b);
       if(st) w.appendChild(h(`<div class="stars">${[1,2,3].map(i=>`<i class="${i<=st?'on':''}">★</i>`).join('')}</div>`));
       if(id===cur){
-        w.appendChild(h(`<div class="start-tip">開始！</div>`));
+        w.classList.add('has-tip');w.appendChild(h(`<div class="start-tip">開始！</div>`));
         const c=h(`<div class="side-cat ${x>0?'l':'r'}">${catSVG('happy')}</div>`); w.appendChild(c);
       }
       nodes.appendChild(w);
@@ -491,47 +497,55 @@ function startLesson(id){
   document.body.style.overflow='hidden';
   LS={L,steps:buildSteps(L),i:0,mistakes:0,layer};
   layer.querySelector('#xBtn').onclick=quitLesson;
-  layer.querySelector('#fbGo').onclick=next;
+  layer.querySelector('#fbGo').onclick=()=>{if(!LS||!LS.fbAt||Date.now()-LS.fbAt<400)return;LS.fbAt=0;next()};
   showStep();
 }
-function quitLesson(){speechSynthesis?.cancel?.();LS.layer.remove();LS=null;document.body.style.overflow='';render()}
+/* STEP changes on every step switch and on quit; delayed speech checks it so an old step never talks over a new one (0-2). */
+let STEP=0;
+const live=t=>!!LS&&t===STEP;
+function later(ms,fn){const t=STEP;setTimeout(()=>{if(live(t))fn()},ms)}
+function stopVoice(){STEP++;try{speechSynthesis.cancel()}catch(e){}}
+function quitLesson(){stopVoice();LS.layer.remove();LS=null;document.body.style.overflow='';render()}
 function setProg(){LS.layer.querySelector('.prog i').style.width=(LS.i/LS.steps.length*100)+'%'}
 function showStep(){
-  setProg();
+  setProg(); stopVoice();
   const st=LS.steps[LS.i], stage=LS.layer.querySelector('#stage');
   stage.innerHTML=''; stage.scrollTop=0;
-  LS.layer.querySelector('#fb').classList.remove('show');
+  const fb=LS.layer.querySelector('#fb');fb.classList.remove('show');fb.inert=true;LS.fbAt=0;
+  stage.setAttribute('tabindex','-1');stage.focus({preventScroll:true});
   STEPS[st.t](stage,st);
 }
 async function correct(text){
   sfx.ok();
   const p=text||pick(PRAISE);
   LS.layer.querySelector('#fbTxt').textContent=p;
-  LS.layer.querySelector('#fb').classList.add('show');
+  const fb=LS.layer.querySelector('#fb');fb.inert=false;fb.classList.add('show');LS.fbAt=Date.now();
   LS.layer.querySelector('#fbGo').focus({preventScroll:true});
-  await wait(350); speak(p.replace('！',''),{rate:1});
+  later(350,()=>speak(p.replace('！',''),{rate:1}));
 }
 function wrong(){LS.mistakes++;sfx.no()}
 function next(){
+  if(!LS||LS.done)return;
   LS.i++;
   if(LS.i>=LS.steps.length) return finish();
   showStep();
 }
 function finish(){
+  if(LS.done)return; LS.done=true;
   setProg();
   const stars=LS.mistakes===0?3:LS.mistakes<=2?2:1;
   const id=LS.L.id;
   P.stars[id]=Math.max(P.stars[id]||0,stars); save();
   const col=LS.layer.querySelector('.col');
-  LS.layer.querySelector('#fb').classList.remove('show');
+  const fb=LS.layer.querySelector('#fb');fb.classList.remove('show');fb.inert=true;
   col.querySelector('.stage').outerHTML=`<div class="result">${catSVG('happy').replace('<svg','<svg class="big cat-bounce"')}
      <h2>${stars===3?'完美過關！':stars===2?'做得很好！':'完成了！'}</h2>
      <div class="bigstars">${[1,2,3].map(i=>`<i class="${i<=stars?'on':''}" style="animation-delay:${.2+i*.25}s">★</i>`).join('')}</div>
      <p>${LS.L.type==='sym'?`你學會了 <span class="zy" style="font-size:1.5em;color:var(--sky)">${LS.L.s}</span>`:'又往前走了一站'}</p>
      <button class="btn go" id="doneBtn" style="margin-top:10px">回到地圖</button></div>`;
-  col.querySelector('#doneBtn').onclick=quitLesson;
+  const done=col.querySelector('#doneBtn');done.onclick=quitLesson;done.focus({preventScroll:true});
   sfx.win(); confetti();
-  setTimeout(()=>speak(stars===3?'完美過關':'做得很好',{rate:1}),400);
+  later(400,()=>speak(stars===3?'完美過關':'做得很好',{rate:1}));
 }
 
 /* ---------- step renderers ---------- */
@@ -554,31 +568,31 @@ const STEPS={
  intro(stage,{s}){
   stage.append(prompt('這是新朋友！點一下聽聽看','happy'));
   const card=h(`<div class="bigcard"><span class="s">${s}</span></div>`);
-  const sp=speakerBtn(()=>saySym(s)); card.appendChild(sp);
+  const sp=speakerBtn(()=>saySym(s),true);
   card.querySelector('.s').onclick=()=>sp.click();
-  stage.append(card);
+  const cr=h(`<div class="cardrow"></div>`);cr.append(card,sp);stage.append(cr);
   const ex=h(`<button class="example" aria-label="聽例詞"><span class="em">${SYM[s].e}</span>${wordHTML(s,{hl:s})}</button>`);
   ex.onclick=()=>speak(wordText(s));
   stage.append(ex);
   stage.append(h(`<p class="hint">「${s}」就在「${wordText(s)}」裡面，紅色的就是它</p>`));
   const go=h(`<button class="btn go">我記住了</button>`);go.onclick=next;stage.append(go);
-  (async()=>{await wait(300);sp.click();await wait(1300);await speak(`${SYM[s].say}，${wordText(s)}的${SYM[s].say}`)})();
+  later(300,()=>{sp.click();later(1300,()=>speak(`${SYM[s].say}，${wordText(s)}的${SYM[s].say}`))});
  },
  listen(stage,{s,peers}){
   stage.append(prompt('聽一聽，是哪一個注音？'));
   const sp=speakerBtn(()=>saySym(s));stage.append(sp);
-  stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>correct(),{label:()=>setTimeout(()=>saySym(s),400)}));
-  setTimeout(()=>sp.click(),350);
+  stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>correct(),{label:()=>later(400,()=>saySym(s))}));
+  later(350,()=>sp.click());
  },
  picture(stage,{s,peers}){
   stage.append(prompt(`「${wordText(s)}」少了哪一個注音？`));
   const ex=h(`<button class="example" aria-label="聽例詞"><span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{blank:s})}</button>`);
   ex.onclick=()=>speak(wordText(s));stage.append(ex);
   stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>{ex.innerHTML=`<span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{hl:s})}`;correct()}));
-  setTimeout(()=>speak(wordText(s)),350);
+  later(350,()=>speak(wordText(s)));
  },
  trace(stage,{s}){
-  stage.append(prompt(`沿著灰色的線，寫寫看「${s}」`,'happy'));
+  stage.append(prompt(`沿著藍色的字，寫寫看「${s}」`,'happy'));
   const box=h(`<div class="trace"><div class="cross"></div><canvas class="g"></canvas><canvas class="u"></canvas></div>`);
   stage.append(box);
   const hint=h(`<p class="hint"></p>`);stage.append(hint);
@@ -604,10 +618,10 @@ const STEPS={
   const end=()=>{cur=null};u.addEventListener('pointerup',end);u.addEventListener('pointercancel',end);
   clr.onclick=()=>{if(passed)return;strokes=[];redraw();hint.textContent=''};
   ok.onclick=()=>{if(passed)return;
-    if(!strokes.length){hint.textContent='先用手指沿著灰色的線畫畫看';return}
+    if(!strokes.length){hint.textContent='先用手指沿著藍色的字畫畫看';return}
     const {cov,prec}=traceScore(s,strokes,W,lw());
     if(cov>=.6&&prec>=.6){passed=true;redraw();hint.textContent='';correct(cov>.8?'寫得好漂亮！':'寫得很好！')}
-    else{wrong();hint.textContent=cov<.6?'還有一些地方沒有寫到，再試一次！':'要沿著灰色的線寫喔，再試一次！';setTimeout(()=>{strokes=[];redraw()},700)}
+    else{wrong();hint.textContent=cov<.6?'還有一些地方沒有寫到，再試一次！':'要沿著藍色的字寫喔，再試一次！';setTimeout(()=>{strokes=[];redraw()},700)}
   };
   requestAnimationFrame(setup);
  },
@@ -622,11 +636,12 @@ const STEPS={
   const cells=shuffle([...Array(9).keys()]).slice(0,items.length);
   items.forEach((it,i)=>{const c=cells[i], cx=(c%3)*33+17+(Math.random()*8-4), cy=Math.floor(c/3)*31+18+(Math.random()*8-4);
     const b=h(`<button class="bub" style="left:${cx}%;top:${cy}%;--d:${(2+Math.random()*2).toFixed(2)}s;--dx:${(Math.random()*20-10)|0}px;--dy:${(Math.random()*20-10)|0}px">${it}</button>`);
-    b.onclick=()=>{if(it===s){sfx.pop();b.classList.add('pop');got++;tg.querySelector('.count').textContent=`${got} / ${need}`;
-        if(got===need)setTimeout(()=>correct('全部找到了！'),300)}
-      else{b.classList.remove('no');void b.offsetWidth;b.classList.add('no');wrong();setTimeout(()=>saySym(s),300)}};
+    b.onclick=()=>{if(got>=need||b.classList.contains('pop'))return;
+      if(it===s){sfx.pop();b.classList.add('pop');got++;tg.querySelector('.count').textContent=`${got} / ${need}`;
+        if(got===need){pond.classList.add('done');later(300,()=>correct('全部找到了！'))}}
+      else{b.classList.remove('no');void b.offsetWidth;b.classList.add('no');wrong();later(300,()=>saySym(s))}};
     pond.appendChild(b)});
-  setTimeout(()=>saySym(s),350);
+  later(350,()=>saySym(s));
  },
  blendDemo(stage,{it:[a,b,ch]}){
   stage.append(prompt('兩個注音拼在一起，會變成什麼？','happy'));
@@ -638,9 +653,9 @@ const STEPS={
   let played=false;
   go.onclick=async()=>{
     if(played){next();return}
-    played=true;go.disabled=true;
-    await saySym(a);await wait(200);await saySym(b);await wait(200);
-    bl.classList.add('go');res.classList.add('show');sfx.pop();await wait(500);await speak(ch,{rate:.7});
+    played=true;go.disabled=true;const t=STEP;
+    await saySym(a);if(!live(t))return;await wait(200);await saySym(b);if(!live(t))return;await wait(200);
+    bl.classList.add('go');res.classList.add('show');sfx.pop();await wait(500);if(!live(t))return;await speak(ch,{rate:.7});
     go.textContent='繼續';go.disabled=false;go.classList.add('go');
   };
  },
@@ -648,8 +663,8 @@ const STEPS={
   stage.append(prompt('聽一聽，是哪一個拼音？'));
   const sp=speakerBtn(()=>speak(ch,{rate:.7}));stage.append(sp);
   const others=shuffle(set.filter(x=>x[2]!==ch&&x[0]+x[1]!==a+b)).slice(0,2).map(x=>x[0]+x[1]);
-  stage.append(optionRow([a+b,...others],a+b,()=>{correct(`對！${a}${b}，${ch}`)},{wide:true,label:()=>setTimeout(()=>speak(ch,{rate:.7}),400)}));
-  setTimeout(()=>sp.click(),350);
+  stage.append(optionRow([a+b,...others],a+b,()=>{correct(`對！${a}${b}，${ch}`)},{wide:true,label:()=>later(400,()=>speak(ch,{rate:.7}))}));
+  later(350,()=>sp.click());
  },
  blendBuild(stage,{it:[a,b,ch]}){
   stage.append(prompt(`「${ch}」前面要放哪一個注音？`));
@@ -657,8 +672,8 @@ const STEPS={
   stage.append(bl);
   const sp=speakerBtn(()=>speak(ch,{rate:.7}),true);stage.append(sp);
   const opts=[a,...distractors(a,2,['ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄍ','ㄎ','ㄏ','ㄓ'])];
-  stage.append(optionRow(opts,a,async()=>{bl.querySelector('.a').textContent=a;correct(`${a}${b}，${ch}`)},{label:()=>setTimeout(()=>speak(ch,{rate:.7}),400)}));
-  setTimeout(()=>sp.click(),350);
+  stage.append(optionRow(opts,a,async()=>{bl.querySelector('.a').textContent=a;correct(`${a}${b}，${ch}`)},{label:()=>later(400,()=>speak(ch,{rate:.7}))}));
+  later(350,()=>sp.click());
  },
  toneDemo(stage,{set}){
   stage.append(prompt('同一個拼音，有四種唱法，點點看！','happy'));
@@ -668,7 +683,7 @@ const STEPS={
     b.onclick=()=>speak(ch,{rate:.7});g.appendChild(b)});
   stage.append(g);
   const go=h(`<button class="btn go">我聽完了</button>`);go.onclick=next;stage.append(go);
-  (async()=>{await wait(300);for(const [ch] of set){await speak(ch,{rate:.7});await wait(250)}})();
+  {const t=STEP;(async()=>{await wait(300);for(const [ch] of set){if(!live(t))return;await speak(ch,{rate:.7});await wait(250)}})();}
  },
  tonePick(stage,{set,k}){
   const [ch,zy]=set[k];
@@ -677,8 +692,8 @@ const STEPS={
   const base=set[0][1];
   stage.append(optionRow([0,1,2,3],k,()=>correct(`對！「${ch}」是${TONE_NAME[k]}`),
     {wide:true,render:i=>`<span>${zc(base+TONES[i]).replace('class="zc"','class="zc" style="font-size:1.7rem"')}<span class="lab">${TONE_NAME[i]}</span></span>`,
-     label:()=>setTimeout(()=>speak(ch,{rate:.7}),400)}));
-  setTimeout(()=>sp.click(),350);
+     label:()=>later(400,()=>speak(ch,{rate:.7}))}));
+  later(350,()=>sp.click());
  },
 };
 
