@@ -2,7 +2,7 @@
 
 給 4 歲以上孩子的注音符號學習網頁遊戲（台灣繁體中文），玩法參考「學習地圖＋短課程」類型的兒童識字 App，角色與畫面為原創（吉祥物：橘貓「橘子老師」）。
 
-- 線上版：https://claude.ai/artifact/AZspvdZKA37N15rKLaEnyd
+- 線上版：https://rabbit52068.github.io/zhuyin/
 - 原始碼：`index.html`（單一檔案，無建置步驟，不需伺服器）
 
 ## 內容
