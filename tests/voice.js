@@ -95,6 +95,18 @@ const KEYS = new Set(lines().map(l => l.key));
   const quit = await pg.evaluate(async () => { const sl = ms => new Promise(r => setTimeout(r, ms));
     quitLesson(); startLesson(0); await sl(350); window.__played = []; askQuit(); await sl(1500); return window.__played.slice() });
   ok('R2 quit question stops the automatic prompt', quit.length === 1, JSON.stringify(quit));
+  // Codex R3: per-miss and per-answer audio ownership
+  const listenStep = async () => { const sl = ms => new Promise(r => setTimeout(r, ms));
+    if (LS) quitLesson(); startLesson(0); await sl(200); LS.i = LS.steps.findIndex(s => s.t === 'listen'); showStep(); await sl(2500); };
+  const two = await pg.evaluate(async (fn) => { const sl = ms => new Promise(r => setTimeout(r, ms)); await eval(fn)();
+    const s = LS.steps[LS.i].s, wrongs = [...document.querySelectorAll('#stage .opt')].filter(o => o.textContent.trim() !== s);
+    window.__played = []; wrongs[0].click(); await sl(40); wrongs[1].click(); await sl(2000); return window.__played.slice() }, listenStep.toString());
+  ok('R3 two quick misses: no stale replay', !two.includes('sym/01.mp3') && two.length === 3, JSON.stringify(two));
+  const after = await pg.evaluate(async (fn) => { const sl = ms => new Promise(r => setTimeout(r, ms)); await eval(fn)();
+    const s = LS.steps[LS.i].s, opts = [...document.querySelectorAll('#stage .opt')];
+    window.__played = []; opts.find(o => o.textContent.trim() !== s).click(); await sl(500);
+    opts.find(o => o.textContent.trim() === s).click(); await sl(1500); return window.__played.slice() }, listenStep.toString());
+  ok('R3 correct answer after a miss still gets praise, no stale replay', after.length === 2 && !after.includes('sym/01.mp3'), JSON.stringify(after));
   await pg.evaluate(() => { if (LS) quitLesson() });
   ok('no page errors', errs.length === 0, errs.join(' | '));
   await b.close();

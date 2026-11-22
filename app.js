@@ -283,23 +283,27 @@ async function correct(text,say){
   LS.layer.querySelector('#fbTxt').textContent=p;
   const fb=LS.layer.querySelector('#fb');fb.inert=false;fb.classList.add('show');LS.fbAt=Date.now();
   LS.layer.querySelector('#fbGo').focus({preventScroll:true});
-  laterSay(350,g=>sayAll(say,STEP,g));
+  /* the answer owns a new audio generation now, so older replays are dropped. After two misses the answer
+     comes later (correct.since = that miss's generation): if the child started other speech meanwhile, stay quiet. */
+  const fresh=correct.since==null||AUD===correct.since;correct.since=null;
+  const t=STEP,g=++AUD;
+  if(fresh)setTimeout(()=>{if(live(t)&&g===AUD)sayAll(say,t,g)},350);
 }
 const ENCOURAGE=['再想想看！','沒關係，再試一次！','慢慢來，你可以的！'];
-const quiet=()=>AUD===wrong.g;
 function catMood(mood){const c=LS&&LS.layer.querySelector('#stage .prompt svg');if(c)c.outerHTML=catSVG(mood)}
 /* A miss: thinking face and a kind line. count=false for tracing, which never costs a mistake (1-5).
-   Resolves true if the step is still on screen (gameplay). Callers replay a sound only if quiet() is
-   still true afterwards, i.e. the child did not start other speech meanwhile. */
+   Resolves true if the step is still on screen (gameplay). The promise's .g is this miss's audio generation:
+   callers replay a sound only if AUD===p.g afterwards, i.e. nothing newer started talking. */
 function wrong({count=true}={}){
   if(count)LS.mistakes++;
   sfx.no();catMood('think');
-  const t=STEP,g=++AUD;wrong.g=g;
-  return new Promise(r=>setTimeout(async()=>{
+  const t=STEP,g=++AUD;
+  const p=new Promise(r=>setTimeout(async()=>{
     if(live(t)&&g===AUD)await speak(pick(ENCOURAGE).replace(/！/g,''),{rate:1});
     if(live(t))catMood('happy');
     r(live(t));
   },250));
+  p.g=g;return p;
 }
 /* Read the question aloud, then play its sounds, one after another (1-1). Strings are spoken; functions return a promise. */
 async function sayAll(items,t,g=AUD){
@@ -349,9 +353,9 @@ function optionRow(items,target,onRight,{wide=false,label=null,render=null}={}){
     b.onclick=async()=>{if(done)return;
       if(it===target){win(b);onRight&&onRight();return}
       b.classList.remove('no');void b.offsetWidth;b.classList.add('no');miss++;
-      if(miss>=2){win(tb);const ok=await wrong();if(ok){LS.demo=true;onRight&&onRight()}return} // 1-3: show the answer, move on
+      if(miss>=2){win(tb);const w=wrong();if(await w){LS.demo=true;correct.since=w.g;onRight&&onRight()}return} // 1-3: show the answer, move on
       tb.classList.add('glow'); // 1-2: hint the right one
-      if(await wrong()&&quiet())label&&label()};
+      const w=wrong();if(await w&&AUD===w.g)label&&label()};
     row.appendChild(b)});
   return row;
 }
@@ -436,7 +440,7 @@ const STEPS={
         if(got===need){pond.classList.add('done');later(300,()=>correct('全部找到了！'))}}
       else{b.classList.remove('no');void b.offsetWidth;b.classList.add('no');
         if(++miss>=2)pond.querySelectorAll('.bub').forEach(x=>{if(x.textContent===s&&!x.classList.contains('pop'))x.classList.add('glow')});
-        wrong().then(ok=>{if(ok&&quiet())laterSay(300,()=>saySym(s))})}};
+        const w=wrong();w.then(ok=>{if(ok&&AUD===w.g)laterSay(300,()=>saySym(s))})}};
     pond.appendChild(b)});
   voiceSeq(['把所有的這個注音戳破！',()=>saySym(s)]);
  },
