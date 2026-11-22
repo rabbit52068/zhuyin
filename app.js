@@ -286,8 +286,9 @@ async function correct(text,say){
   /* the answer owns a new audio generation now, so older replays are dropped. After two misses the answer
      comes later (correct.since = that miss's generation): if the child started other speech meanwhile, stay quiet. */
   const fresh=correct.since==null||AUD===correct.since;correct.since=null;
+  if(!fresh)return; // leave the newer speech alone (do not even bump AUD)
   const t=STEP,g=++AUD;
-  if(fresh)setTimeout(()=>{if(live(t)&&g===AUD)sayAll(say,t,g)},350);
+  setTimeout(()=>{if(live(t)&&g===AUD)sayAll(say,t,g)},350);
 }
 const ENCOURAGE=['再想想看！','沒關係，再試一次！','慢慢來，你可以的！'];
 function catMood(mood){const c=LS&&LS.layer.querySelector('#stage .prompt svg');if(c)c.outerHTML=catSVG(mood)}
