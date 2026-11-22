@@ -39,7 +39,7 @@ function lines() {
     out.push({ kind, key, text, file });
   };
   FIXED.forEach(t => add('line', t));
-  ORDER.forEach(s => { add('word', wordText(s) + '。'); add('word', wordText(s) + '的'); });
+  ORDER.forEach(s => add('word', wordText(s) + '。'));
   UNITS.forEach(u => (u.sets || []).forEach(set => set.forEach(it => {
     if (u.kind === 'blend') add('char', it[2] + '。');
   })));
