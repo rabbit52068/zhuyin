@@ -35,17 +35,19 @@
 ## 技術說明
 - 純 HTML/CSS/JS，無框架
 - 字型：Google Fonts「LXGW WenKai TC」（楷書注音）、「Noto Sans TC」（介面）
-- 發音：瀏覽器 Web Speech API（優先 zh-TW 語音），每個注音以同音字代唸（`SYM[s].say`）
+- 發音：預錄音檔（`audio/`，對照表在 `clips.js`，由 `tools/voice-lines.js` 產生）；沒有音檔的句子才用瀏覽器 Web Speech API
 - 音效：Web Audio API 合成
 - 進度：`localStorage`（`zy-progress`、`zy-settings`），只存在本機瀏覽器
 - 支援深色模式、手機寬度、`prefers-reduced-motion`
 
 ## 已知限制
-- 發音品質取決於裝置的中文語音；ㄝ、ㄟ、ㄥ 沒有理想的同音代唸字，可能不準
-- 尚未實際聆聽驗證各裝置的發音
+- 尚未在 iOS Safari 等實機上驗證音檔播放
 - 描寫沒有筆順檢查
 
 ## 可能的下一步
 - 筆順動畫與筆順檢查
-- 改用真人錄音取代語音合成
 - 更多例詞／圖片、更多拼音與聲調練習
+
+## 素材授權
+- 注音發音（`audio/sym/`）：2017 © 教育部，國語注音符號手冊-開放部件。此素材依「創用CC 姓名標示 4.0 國際版本」授權條款進行公眾釋出：https://creativecommons.org/licenses/by/4.0/deed.zh_TW 。原始 WAV 轉為單聲道 MP3。來源：https://language.moe.gov.tw/001/Upload/files/site_content/M0001/juyin/index.html
+- 題目、稱讚與例詞（`audio/v/`）：Microsoft Edge 語音合成（曉臻 zh-TW-HsiaoChenNeural、曉雨 zh-TW-HsiaoYuNeural）
