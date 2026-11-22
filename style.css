@@ -93,6 +93,7 @@ main{flex:1;padding-block:8px 110px}
 /* ---------- overlays ---------- */
 .layer{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.lesson-content{flex:1;display:flex;flex-direction:column;min-height:0}
 .layer .col{width:100%;max-width:560px;margin:0 auto;flex:1;display:flex;flex-direction:column;min-height:0;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .lbar{display:flex;align-items:center;gap:14px;padding-block:14px}
@@ -217,6 +218,7 @@ main{flex:1;padding-block:8px 110px}
 .sheet{position:fixed;inset:0;z-index:30;background:rgba(10,20,40,.45);display:flex;align-items:flex-end;justify-content:center}
 .sheet .box{background:var(--surface);width:100%;max-width:560px;border-radius:26px 26px 0 0;padding:20px max(20px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
 .sheet h3{margin:0;font-size:1.2rem}
+.sheet .box{max-height:100%;overflow-y:auto}
 /* auto margins center the step but let a tall one scroll from the top instead of clipping it */
 .stage>:first-child{margin-top:auto}.stage>:last-child{margin-bottom:auto}
 .say{display:inline-grid;place-items:center;width:2em;height:2em;margin-right:.4em;border-radius:50%;background:var(--sky);box-shadow:0 3px 0 var(--sky-d);vertical-align:middle;flex:none;font-size:.85em}
@@ -238,4 +240,17 @@ main{flex:1;padding-block:8px 110px}
 
 .cat-bounce{animation:catb .6s ease}
 @keyframes catb{30%{transform:translateY(-10px) rotate(-6deg)}60%{transform:translateY(0) rotate(4deg)}}
+/* Compact intro only: retain the existing tall-screen layout and feedback space. */
+@media (max-height:740px){
+  .iconbtn{min-width:44px;min-height:44px}
+  .layer .say{min-width:44px;min-height:44px}
+  .layer[data-step="intro"] .fb:not(.show){display:none}
+  .stage[data-step="intro"]{gap:10px;padding-block:10px}
+  .stage[data-step="intro"]>*{flex-shrink:0}
+  .stage[data-step="intro"] .cardrow{flex-direction:row;gap:16px}
+  .stage[data-step="intro"] .bigcard{width:min(180px,48vw,26vh)}
+  .stage[data-step="intro"] .bigcard .s{font-size:min(120px,34vw,19vh)}
+  .stage[data-step="intro"] .example{padding:8px 14px}
+  .stage[data-step="intro"] .hint{margin:0;line-height:1.5}
+}
 @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

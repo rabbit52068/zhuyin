@@ -69,6 +69,55 @@ function zc(zy,{hl=null,blank=null}={}){
 const wz=(ch,zy,o)=>`<span class="wz"><span class="ch">${ch}</span>${zc(zy,o)}</span>`;
 const wordHTML=(s,o)=>`<span class="wd">${SYM[s].w.map(([c,z])=>wz(c,z,o)).join('')}</span>`;
 
+/* Only the top modal handles keys/focus. Nested dialogs temporarily inert their
+   siblings, restoring each previous inert value when released. */
+const MODALS=[];
+const focusableSelector='button,a[href],input,select,textarea,[tabindex]';
+function modalTargets(root){
+  return [...root.querySelectorAll(focusableSelector)].filter(el=>{
+    const style=getComputedStyle(el);
+    return !el.disabled&&el.tabIndex>=0&&!el.closest('[inert]')&&el.getClientRects().length&&style.visibility!=='hidden'&&style.opacity!=='0';
+  });
+}
+function focusModal(entry){(modalTargets(entry.root)[0]||entry.dialog).focus()}
+function modalKey(e){
+  const entry=MODALS[MODALS.length-1];if(!entry||!entry.root.isConnected)return;
+  if(e.key==='Escape'){e.preventDefault();e.stopPropagation();entry.onEscape();return}
+  if(e.key!=='Tab')return;
+  const targets=modalTargets(entry.root),i=targets.indexOf(document.activeElement);
+  if(!targets.length){e.preventDefault();entry.dialog.focus()}
+  else if(e.shiftKey&&i<=0){e.preventDefault();targets[targets.length-1].focus()}
+  else if(!e.shiftKey&&(i<0||i===targets.length-1)){e.preventDefault();targets[0].focus()}
+}
+function modalFocus(e){
+  const entry=MODALS[MODALS.length-1];
+  if(entry&&entry.root.isConnected&&!entry.root.contains(e.target))focusModal(entry);
+}
+function holdModal(root,{dialog=root,opener=document.activeElement,onEscape,initial}={}){
+  const entry={root,dialog,opener,onEscape,blocked:[]};
+  dialog.setAttribute('aria-modal','true');dialog.setAttribute('tabindex','-1');
+  for(let branch=root;branch.parentElement;branch=branch.parentElement){
+    const parent=branch.parentElement;
+    for(const sibling of parent.children)if(sibling!==branch&&!['SCRIPT','STYLE','LINK'].includes(sibling.tagName)){
+      entry.blocked.push([sibling,sibling.inert]);sibling.inert=true;
+    }
+    if(parent===document.body)break;
+  }
+  if(!MODALS.length){document.addEventListener('keydown',modalKey,true);document.addEventListener('focusin',modalFocus,true)}
+  MODALS.push(entry);
+  if(initial)initial.focus({preventScroll:true});else focusModal(entry);
+  return ()=>{
+    const index=MODALS.indexOf(entry);if(index<0)return;
+    // Releasing a lesson also releases any exit question still inside it.
+    while(MODALS.length>index){const old=MODALS.pop();old.blocked.forEach(([el,inert])=>{el.inert=inert})}
+    if(!MODALS.length){document.removeEventListener('keydown',modalKey,true);document.removeEventListener('focusin',modalFocus,true)}
+    const target=typeof opener==='function'?opener():opener;
+    if(target&&target.isConnected&&!target.closest('[inert]'))target.focus();
+    else if(MODALS.length)focusModal(MODALS[MODALS.length-1]);
+    else $('#'+(tab==='path'?'tabPath':'tabChart')).focus({preventScroll:true});
+  };
+}
+
 /* ======================= MASCOT (original orange cat 「橘子老師」) ======================= */
 function catSVG(mood='happy'){
   const eyes = mood==='happy'
@@ -164,10 +213,19 @@ async function sayTap(items){const g=++AUD;
   for(const it of items){if(g!==AUD)return;await (typeof it==='string'?speak(it,{rate:1}):it());if(g!==AUD)return;await wait(150)}}
 /* a single sound the child asked for (speaker, example, letter): stops any sequence that is talking */
 const tap=fn=>()=>{AUD++;return fn()};
+const READABLE=new WeakMap();
+function readSentence(el){const items=READABLE.get(el);if(items)sayTap(typeof items==='function'?items():items)}
+// Delegate text clicks so the plain text itself has no interactive role/listener.
+// Only the native play button is a keyboard stop and announces the action.
+function readTextClick(e){
+  const el=e.target.closest('.readable');
+  if(el&&!e.target.closest('button,a,input,select,textarea'))readSentence(el);
+}
 function readable(el,items){
-  if(!el.querySelector(':scope>.say'))el.insertAdjacentHTML('afterbegin',`<button class="say" type="button" aria-label="唸給我聽">${SPK}</button>`);
+  READABLE.set(el,items);
+  if(!el.querySelector(':scope>.say'))el.insertAdjacentHTML('afterbegin',`<button class="say" type="button" aria-label="唸給我聽">${SPK.replace('<svg','<svg aria-hidden="true" focusable="false"')}</button>`);
   el.classList.add('readable');
-  el.onclick=e=>{if(e.target.closest('button:not(.say)'))return;sayTap(typeof items==='function'?items():items)};
+  el.querySelector(':scope>.say').onclick=e=>{e.stopPropagation();readSentence(el)};
   return el}
 let AC=null;
 function tone(seq){
@@ -188,7 +246,8 @@ function render(){
   $('#starCount').textContent=totalStars();
   $('#tabPath').setAttribute('aria-selected',tab==='path');
   $('#tabChart').setAttribute('aria-selected',tab==='chart');
-  const m=$('#main'); m.innerHTML='';
+  $('#tabPath').tabIndex=tab==='path'?0:-1;$('#tabChart').tabIndex=tab==='chart'?0:-1;
+  const m=$('#main');m.setAttribute('aria-labelledby',tab==='path'?'tabPath':'tabChart');m.innerHTML='';
   tab==='path'?renderPath(m):renderChart(m);
 }
 function renderPath(m){
@@ -211,12 +270,13 @@ function renderPath(m){
       const L=LESSONS[id], open=unlocked(id), st=starsOf(L), x=OFFS[n++%OFFS.length];
       const label = L.type==='sym'?L.s : L.type==='review'?'🎈' : L.type==='blend'?(L.set[0][0]+L.set[0][1]) : '<span style="font-family:var(--f-ui);font-size:1.6rem">ˊˇˋ</span>';
       const w=h(`<div class="node-wrap" style="--x:${x}"></div>`);
-      const b=h(`<button class="node ${open?'':'lock'} ${L.type==='review'?'review':''} ${id===cur?'cur':''}" aria-label="${open?'開始':'尚未解鎖'}"></button>`);
+      const name=nodeName(L), status=open?`${name}，${st?st+' 顆星':'還沒完成'}`:`尚未解鎖：${name}`;
+      const b=h(`<button class="node ${open?'':'lock'} ${L.type==='review'?'review':''} ${id===cur?'cur':''}" data-lesson-key="${L.key}" aria-label="${status}" aria-disabled="${!open}"></button>`);
       if(L.type==='blend') b.style.fontSize='1.6rem';
       b.innerHTML = open ? label : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
-      if(open){b.onclick=()=>startLesson(id)} else b.onclick=()=>{sfx.no()};
+      if(open){b.onclick=()=>startLesson(id,b)} else b.onclick=()=>{sfx.no()};
       w.appendChild(b);
-      if(st) w.appendChild(h(`<div class="stars">${[1,2,3].map(i=>`<i class="${i<=st?'on':''}">★</i>`).join('')}</div>`));
+      if(st) w.appendChild(h(`<div class="stars" aria-hidden="true">${[1,2,3].map(i=>`<i class="${i<=st?'on':''}">★</i>`).join('')}</div>`));
       if(id===cur){
         w.classList.add('has-tip');w.appendChild(h(`<div class="start-tip">開始！</div>`));
         const c=h(`<div class="side-cat ${x>0?'l':'r'}">${catSVG('happy')}</div>`); w.appendChild(c);
@@ -266,17 +326,19 @@ function buildSteps(L){
   if(L.type==='tone'){const set=L.set;
     return [{t:'toneDemo',set},...shuffle([0,1,2,3]).map(k=>({t:'tonePick',set,k}))];}
 }
-function startLesson(id){
+function startLesson(id,opener=document.activeElement){
   const L=LESSONS[id];
-  const layer=h(`<div class="layer" role="dialog" aria-label="課程"><div class="col">
+  const layer=h(`<div class="layer" role="dialog" aria-label="課程"><div class="lesson-content"><div class="col">
      <div class="lbar"><button class="iconbtn" id="xBtn" aria-label="離開課程"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="prog"><i></i></div></div>
      <div class="stage" id="stage"></div></div>
-     <div class="fb" id="fb"><div class="in"><div class="msg">${catSVG('happy')}<span id="fbTxt"></span></div><button class="btn go" id="fbGo">繼續</button></div></div></div>`);
+     <div class="fb" id="fb"><div class="in"><div class="msg">${catSVG('happy')}<span id="fbTxt"></span></div><button class="btn go" id="fbGo">繼續</button></div></div></div></div>`);
   document.body.appendChild(layer);
   document.body.style.overflow='hidden';
   LS={L,steps:buildSteps(L),i:0,mistakes:0,layer};
   layer.querySelector('#xBtn').onclick=askQuit;
   layer.querySelector('#fbGo').onclick=()=>{if(!LS||!LS.fbAt||Date.now()-LS.fbAt<400)return;LS.fbAt=0;next()};
+  LS.releaseModal=holdModal(layer,{onEscape:askQuit,initial:layer.querySelector('#xBtn'),opener:()=>
+    opener&&opener!==document.body&&opener.isConnected?opener:[...document.querySelectorAll('.node')].find(b=>b.dataset.lessonKey===L.key)});
   showStep();
 }
 /* STEP changes on every step switch and on quit; delayed speech checks it so an old step never talks over a new one (0-2). */
@@ -296,17 +358,19 @@ function askQuit(){
     <div class="row"><button class="btn go" id="askStay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>繼續玩</button>
     <button class="btn ghost" id="askLeave"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4H6v16h8M10 12h10M17 8l4 4-4 4"/></svg>離開</button></div></div></div>`);
   LS.layer.appendChild(ask);
-  const stay=ask.querySelector('#askStay');stay.focus({preventScroll:true});
-  stay.onclick=()=>ask.remove();
+  const stay=ask.querySelector('#askStay');
+  const close=()=>{hush();ask.remove();release()};
+  const release=holdModal(ask,{opener:LS.layer.querySelector('#xBtn'),onEscape:close,initial:stay});
+  stay.onclick=close;
   ask.querySelector('#askLeave').onclick=quitLesson;
-  ask.onkeydown=e=>{if(e.key==='Escape')ask.remove()};
   hush();speak('要離開嗎',{rate:1});
 }
-function quitLesson(){stopVoice();LS.layer.remove();LS=null;document.body.style.overflow='';render()}
+function quitLesson(){const release=LS.releaseModal;stopVoice();LS.layer.remove();LS=null;document.body.style.overflow='';render();if(release)release()}
 function setProg(){LS.layer.querySelector('.prog i').style.width=(LS.i/LS.steps.length*100)+'%'}
 function showStep(){
   setProg(); stopVoice();
   const st=LS.steps[LS.i], stage=LS.layer.querySelector('#stage');
+  LS.layer.dataset.step=st.t;stage.dataset.step=st.t;
   stage.innerHTML=''; stage.scrollTop=0;
   const fb=LS.layer.querySelector('#fb');fb.classList.remove('show');fb.inert=true;LS.fbAt=0;LS.demo=false;
   stage.setAttribute('tabindex','-1');stage.focus({preventScroll:true});
@@ -578,6 +642,8 @@ function confetti(){
 }
 
 /* ======================= SETTINGS ======================= */
+function nodeName(L){const u=UNITS[L.ui];
+  return L.type==='sym'?L.s:L.type==='review'?`複習：${u.name}`:`${u.name} 第 ${u.lessons.indexOf(L.id)+1} 組`}
 function lessonName(L){const u=UNITS[L.ui];
   return L.type==='sym'?`認識 ${L.s}`:L.type==='review'?`複習・${u.name}`:L.type==='blend'?`拼音 ${u.lessons.indexOf(L.id)+1}`:`聲調 ${u.lessons.indexOf(L.id)+1}`}
 function recordHTML(){
@@ -586,18 +652,20 @@ function recordHTML(){
   return `<div class="set rec"><span>最近的課<small>每課都給 3 顆星；這裡記錄答錯幾次</small></span></div><ul class="rec-list">${
     rows.map(([key,r])=>`<li><span>${lessonName(LESSON_BY_KEY.get(key))}</span><b>${r.m?`答錯 ${r.m} 次`:'全對'}</b></li>`).join('')}</ul>`}
 /* 1-7: a sum a 4-year-old cannot do keeps settings for grown-ups */
-function parentGate(then){
+function parentGate(then,opener=document.activeElement){
   const a=11+(Math.random()*8|0),b=3+(Math.random()*6|0),ans=a+b;
   const opts=shuffle([ans,ans+1+(Math.random()*3|0),ans-1-(Math.random()*3|0)]);
   const sh=h(`<div class="sheet"><div class="box" role="dialog" aria-label="家長確認">
     <h3>家長確認</h3><p class="gate-q">${a} ＋ ${b} ＝ ？</p>
     <div class="row">${opts.map(o=>`<button class="btn ghost gate-o">${o}</button>`).join('')}</div>
     <button class="btn wide" id="gateX">取消</button></div></div>`);
-  sh.querySelectorAll('.gate-o').forEach(btn=>btn.onclick=()=>{sh.remove();if(+btn.textContent===ans)then()});
-  sh.querySelector('#gateX').onclick=()=>sh.remove();sh.onclick=e=>{if(e.target===sh)sh.remove()};
-  document.body.appendChild(sh);sh.querySelector('.gate-o').focus({preventScroll:true});
+  const close=()=>{sh.remove();release()};
+  sh.querySelectorAll('.gate-o').forEach(btn=>btn.onclick=()=>{close();if(+btn.textContent===ans)then(opener)});
+  sh.querySelector('#gateX').onclick=close;sh.onclick=e=>{if(e.target===sh)close()};
+  document.body.appendChild(sh);
+  const release=holdModal(sh,{dialog:sh.querySelector('.box'),opener,onEscape:close,initial:sh.querySelector('.gate-o')});
 }
-function openSettings(){
+function openSettings(opener=document.activeElement){
   let armed=false;
   const sh=h(`<div class="sheet"><div class="box" role="dialog" aria-label="家長設定">
     <h3>家長設定</h3>
@@ -615,14 +683,27 @@ function openSettings(){
   const rst=sh.querySelector('#rst');
   rst.onclick=()=>{if(!armed){armed=true;rst.textContent='再按一次確定';rst.style.color='var(--coral-d)';return}
     P=emptyProgress();save();rst.textContent='已清除';renderPath.scrolled=0};
-  const close=()=>{sh.remove();render()};
+  const close=()=>{sh.remove();render();release()};
   sh.querySelector('#cls').onclick=close;sh.onclick=e=>{if(e.target===sh)close()};
   sync();document.body.appendChild(sh);
+  const release=holdModal(sh,{dialog:sh.querySelector('.box'),opener,onEscape:close});
+}
+
+function selectTab(value,focus=false){
+  tab=value;if(tab==='path')renderPath.scrolled=0;
+  render();scrollTo(0,0);if(focus)$('#'+(tab==='path'?'tabPath':'tabChart')).focus();
+}
+function tabKey(e){
+  let value;
+  if(e.key==='ArrowLeft'||e.key==='ArrowRight')value=e.currentTarget.id==='tabPath'?'chart':'path';
+  else if(e.key==='Home')value='path';else if(e.key==='End')value='chart';else return;
+  e.preventDefault();selectTab(value,true);
 }
 
 /* ======================= BOOT ======================= */
 document.querySelector('.cat-mini').outerHTML=catSVG('happy').replace('<svg','<svg class="cat-mini"');
-$('#tabPath').onclick=()=>{tab='path';renderPath.scrolled=0;render();scrollTo(0,0)};
-$('#tabChart').onclick=()=>{tab='chart';render();scrollTo(0,0)};
-$('#setBtn').onclick=()=>parentGate(openSettings);
+$('#tabPath').onclick=()=>selectTab('path');$('#tabChart').onclick=()=>selectTab('chart');
+$('#tabPath').onkeydown=tabKey;$('#tabChart').onkeydown=tabKey;
+$('#setBtn').onclick=()=>parentGate(openSettings,$('#setBtn'));
+document.addEventListener('click',readTextClick);
 render();
