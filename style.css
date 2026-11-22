@@ -73,6 +73,11 @@ main{flex:1;padding-block:8px 110px}
 @keyframes bob{50%{transform:translate(-50%,-5px)}}
 .side-cat{position:absolute;width:74px;height:74px;top:-2px}
 .side-cat.r{left:calc(100% + 18px)} .side-cat.l{right:calc(100% + 18px)}
+.daily{display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--surface);border:2px solid var(--sun);border-radius:20px;padding:12px 14px;margin-top:10px}
+.daily.done{border-color:var(--line)}
+.daily .dt{min-width:0}.daily b{font-size:.85rem;letter-spacing:.06em;color:var(--sun-d)}
+.daily p{margin:2px 0 0;font-weight:700;line-height:1.5}
+.daily .btn{flex:none;min-width:0;padding:10px 16px}
 .hello{display:flex;gap:12px;align-items:center;background:var(--surface);border:2px solid var(--line);border-radius:20px;padding:12px 14px;margin-top:14px}
 .hello svg{width:62px;height:62px;flex:none}
 .hello p{margin:0;font-weight:700;line-height:1.5}

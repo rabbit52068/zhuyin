@@ -31,6 +31,8 @@ function readProgress(raw){
   if(!legacy)for(const [s,r] of Object.entries(isRecord(raw.sym)?raw.sym:{})){
     if(Object.hasOwn(SYM,s)&&isRecord(r)&&['ok','ng','t'].every(k=>countValue(r[k])))out.sym[s]={ok:r.ok,ng:r.ng,t:r.t};
   }
+  // daily task (3-4): only the date it was last finished
+  if(!legacy&&isRecord(raw.daily)&&/^\d{4}-\d{2}-\d{2}$/.test(raw.daily.d))out.daily={d:raw.daily.d};
   return out;
 }
 let P=readProgress(store.get('zy-progress',null));
@@ -38,6 +40,15 @@ store.set('zy-progress',P); // persist migration, fresh starts, and repaired sav
 let S=store.get('zy-settings',{rate:0.8,unlockAll:false});
 const save=()=>{store.set('zy-progress',P);store.set('zy-settings',S)};
 const starsOf=l=>l?P.stars[l.key]||0:0;
+/* 3-3 spaced review: which learned symbols are due. Score = smoothed error rate + up to 0.5 for time since
+   last practice (full after 7 days). A symbol never practiced on its own counts as half-learned (0.6). */
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+function dueScore(s,now=Date.now()){const r=P.sym[s];if(!r)return .6;
+  return (r.ng+1)/(r.ok+r.ng+2)+Math.min((now-r.t)/864e5/7,1)*.5}
+function dueSymbols(n){
+  const L=[...learned()];
+  return L.map(s=>[s,dueScore(s)+Math.random()*.05]).sort((a,b)=>b[1]-a[1]).slice(0,n).map(x=>x[0])}
+const dailyDone=()=>!!P.daily&&P.daily.d===today();
 const totalStars=()=>Object.values(P.stars).reduce((a,b)=>a+b,0);
 const unlocked=id=>S.unlockAll||id===0||starsOf(LESSONS[id-1])>0||starsOf(LESSONS[id])>0;
 const currentId=()=>{for(const l of LESSONS) if(!starsOf(l)) return l.id; return -1};
@@ -269,6 +280,14 @@ function renderPath(m){
   const hello=h(`<div class="hello">${catSVG('happy')}<p>${msg}<span class="sub">橘子老師陪你一起學注音</span></p></div>`);
   readable(hello.querySelector('p'),[...(curL&&curL.type==='sym'?['今天來認識',()=>saySym(curL.s)]:[msg]),'橘子老師陪你一起學注音']);
   m.appendChild(hello);
+  if(learned().size>=3){ // 3-4 daily task: find 3 symbols the child needs most (3-3)
+    const done=dailyDone();
+    const card=h(`<div class="daily ${done?'done':''}"><div class="dt"><b>今日任務</b><p>${done?'今天的任務完成了！':'橘子老師想找三個注音，你可以幫忙嗎？'}</p></div>
+      <button class="btn ${done?'ghost':'go'}" id="dailyGo">${done?'再玩一次':'開始'}</button></div>`);
+    readable(card.querySelector('p'),[done?'今天的任務完成了！':'橘子老師想找三個注音，你可以幫忙嗎？']);
+    card.querySelector('#dailyGo').onclick=e=>startLesson(dailyLesson(),e.currentTarget);
+    m.appendChild(card);
+  }
   let n=0;
   UNITS.forEach((u,ui)=>{
     const big=u.kind==='sym'?u.sy:u.big;
@@ -295,7 +314,9 @@ function renderPath(m){
     });
     m.appendChild(sec);
   });
-  requestAnimationFrame(()=>{const c=m.querySelector('.node.cur');if(c&&!renderPath.scrolled){renderPath.scrolled=1;c.scrollIntoView({block:'center'})}});
+  // an open daily task (3-4) is the first thing to see; otherwise scroll to the current lesson
+  requestAnimationFrame(()=>{const c=m.querySelector('.node.cur'),d=m.querySelector('.daily:not(.done)');
+    if(renderPath.scrolled)return;renderPath.scrolled=1;if(d)scrollTo(0,0);else if(c)c.scrollIntoView({block:'center'})});
 }
 
 /* ======================= HOME: CHART ======================= */
@@ -333,7 +354,10 @@ function distractors(target,n,poolHint,allowed=ORDER){
   }
   return out;
 }
+function dailyLesson(){return {key:'daily',type:'daily',syms:dueSymbols(3)}}
 function buildSteps(L){
+  if(L.type==='daily'){const peers=[...learned()];
+    return L.syms.map((s,i)=>({t:['listen','bubbles','picture'][i%3],s,peers}));}
   const u=UNITS[L.ui];
   if(L.type==='sym'){const s=L.s, peers=[...u.sy];
     return [{t:'intro',s},{t:'listen',s,peers},{t:'trace',s},{t:'picture',s,peers},{t:'listen',s,peers},{t:'trace',s}];}
@@ -345,7 +369,7 @@ function buildSteps(L){
     return [{t:'toneDemo',set},...shuffle([0,1,2,3]).map(k=>({t:'tonePick',set,k}))];}
 }
 function startLesson(id,opener=document.activeElement){
-  const L=LESSONS[id];
+  const L=typeof id==='object'?id:LESSONS[id];
   const layer=h(`<div class="layer" role="dialog" aria-label="課程"><div class="lesson-content"><div class="col">
      <div class="lbar"><button class="iconbtn" id="xBtn" aria-label="離開課程"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="prog"><i></i></div></div>
      <div class="stage" id="stage"></div></div>
@@ -386,7 +410,7 @@ function askQuit(){
 function quitLesson(){const release=LS.releaseModal;stopVoice();LS.layer.remove();LS=null;document.body.style.overflow='';render();if(release)release()}
 function setProg(){LS.layer.querySelector('.prog i').style.width=(LS.i/LS.steps.length*100)+'%'}
 function showStep(){
-  setProg(); stopVoice();
+  setProg(); stopVoice(); tickPlay();
   const st=LS.steps[LS.i], stage=LS.layer.querySelector('#stage');
   LS.layer.dataset.step=st.t;stage.dataset.step=st.t;
   stage.innerHTML=''; stage.scrollTop=0;
@@ -433,26 +457,48 @@ async function sayAll(items,t,g=AUD){
   const on=()=>live(t)&&g===AUD;
   for(const it of items){if(!on())return;await (typeof it==='string'?speak(it,{rate:1}):it());if(!on())return;await wait(200)}}
 function voiceSeq(items){const t=STEP,g=++AUD;(async()=>{await wait(300);await sayAll(items,t,g)})()}
+/* 3-6 break reminder: play time adds up between steps (gaps over 5 minutes are not play). After 15 minutes
+   the cat suggests a rest before the next step; 「再玩一下」 asks again 10 minutes later. Parents can turn it off. */
+const PLAY={ms:0,last:0,next:15*60e3};
+function tickPlay(){const now=Date.now(),d=now-PLAY.last;if(PLAY.last&&d>0&&d<5*60e3)PLAY.ms+=d;PLAY.last=now}
 function next(){
   if(!LS||LS.done)return;
+  tickPlay();
+  if(S.breakOff!==true&&PLAY.ms>=PLAY.next&&LS.i+1<LS.steps.length)return askBreak();
   LS.i++;
   if(LS.i>=LS.steps.length) return finish();
   showStep();
+}
+function askBreak(){
+  if(!LS||LS.layer.querySelector('.ask'))return;
+  const ask=h(`<div class="ask" role="alertdialog" aria-label="休息一下"><div class="box">${catSVG('happy')}
+    <p>玩了好一陣子了，讓眼睛休息一下吧！</p>
+    <div class="row"><button class="btn go" id="brkRest">休息一下</button><button class="btn ghost" id="brkMore">再玩一下</button></div></div></div>`);
+  LS.layer.appendChild(ask);
+  readable(ask.querySelector('p'),['玩了好一陣子了，讓眼睛休息一下吧！']);
+  const more=ask.querySelector('#brkMore');
+  const cont=()=>{hush();ask.remove();release();PLAY.next=PLAY.ms+10*60e3;PLAY.last=Date.now();LS.i++;if(LS.i>=LS.steps.length)return finish();showStep()};
+  const release=holdModal(ask,{opener:LS.layer.querySelector('#xBtn'),onEscape:cont,initial:more});
+  more.onclick=cont;
+  ask.querySelector('#brkRest').onclick=()=>{PLAY.ms=0;PLAY.next=15*60e3;PLAY.last=0;release();quitLesson()};
+  hush();speak('玩了好一陣子了，讓眼睛休息一下吧！',{rate:1});
 }
 function finish(){
   if(LS.done)return; LS.done=true;
   setProg();
   const stars=3, perfect=LS.mistakes===0; // finishing earns all 3 stars (1-4)
-  const key=LS.L.key;
-  P.stars[key]=3; P.acc[key]={m:LS.mistakes,n:LS.steps.length,t:Date.now()}; save();
+  const key=LS.L.key,daily=LS.L.type==='daily';
+  if(daily)P.daily={d:today()}; // the daily task gives no stars; it never blocks or punishes anything
+  else{P.stars[key]=3; P.acc[key]={m:LS.mistakes,n:LS.steps.length,t:Date.now()}}
+  save();
   const col=LS.layer.querySelector('.col');
   const fb=LS.layer.querySelector('#fb');fb.classList.remove('show');fb.inert=true;
   col.querySelector('.stage').outerHTML=`<div class="result">${catSVG('happy').replace('<svg','<svg class="big cat-bounce"')}
      <h2>${perfect?'完美過關！':'完成了！你好棒！'}</h2>
-     <div class="bigstars">${[1,2,3].map(i=>`<i class="${i<=stars?'on':''}" style="animation-delay:${.2+i*.25}s">★</i>`).join('')}</div>
-     <p>${LS.L.type==='sym'?`你學會了 <span class="zy" style="font-size:1.5em;color:var(--sky)">${LS.L.s}</span>`:'又往前走了一站'}</p>
+     ${daily?'':`<div class="bigstars">${[1,2,3].map(i=>`<i class="${i<=stars?'on':''}" style="animation-delay:${.2+i*.25}s">★</i>`).join('')}</div>`}
+     <p>${daily?'謝謝你幫忙找到注音！':LS.L.type==='sym'?`你學會了 <span class="zy" style="font-size:1.5em;color:var(--sky)">${LS.L.s}</span>`:'又往前走了一站'}</p>
      <button class="btn go" id="doneBtn" style="margin-top:10px">回到地圖</button></div>`;
-  const title=perfect?'完美過關！':'完成了，你好棒！', more=LS.L.type==='sym'?['你學會了',()=>saySym(LS.L.s)]:['又往前走了一站'];
+  const title=perfect?'完美過關！':'完成了，你好棒！', more=daily?['謝謝你幫忙找到注音！']:LS.L.type==='sym'?['你學會了',()=>saySym(LS.L.s)]:['又往前走了一站'];
   readable(col.querySelector('.result h2'),[title]);readable(col.querySelector('.result p'),more);
   const done=col.querySelector('#doneBtn');done.onclick=quitLesson;done.focus({preventScroll:true});
   sfx.win(); confetti();
@@ -762,6 +808,7 @@ function openSettings(opener=document.activeElement){
     <div class="set"><span>發音速度<small>給剛開始學的孩子用「慢」</small></span><div class="seg" id="rate">
       <button data-v="0.6">慢</button><button data-v="0.8">中</button><button data-v="1">快</button></div></div>
     <div class="set"><span>全部解鎖<small>可以直接跳到任何一課</small></span><button class="sw" role="switch" id="ul" aria-label="全部解鎖"></button></div>
+    <div class="set"><span>休息提醒<small>玩 15 分鐘後，橘子老師提醒休息</small></span><button class="sw" role="switch" id="brk" aria-label="休息提醒"></button></div>
     <button class="btn ghost wide" id="reportBtn" aria-expanded="false" aria-controls="reportPanel">學習報告</button>
     <section class="parent-panel" id="reportPanel" hidden tabindex="0" aria-labelledby="reportHeading">
       <h4 id="reportHeading">學習報告</h4><div id="reportBody">${parentReportHTML()}</div></section>
@@ -778,9 +825,10 @@ function openSettings(opener=document.activeElement){
     ${hasZh||HAS_CLIPS?'':'<div class="warn">沒有找到中文語音：請在系統設定加入「中文（台灣）」語音，或改用 Chrome、Edge、Safari。</div>'}
     <p class="credit">注音發音：2017 © 教育部，國語注音符號手冊-開放部件（<a href="https://creativecommons.org/licenses/by/4.0/deed.zh_TW" target="_blank" rel="noopener">CC BY 4.0</a>）。題目與例詞：Microsoft Edge 語音合成（曉臻、曉雨）。</p>
     <button class="btn wide" id="cls">好了</button></div></div>`);
-  const sync=()=>{sh.querySelectorAll('#rate button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===S.rate));sh.querySelector('#ul').setAttribute('aria-checked',!!S.unlockAll)};
+  const sync=()=>{sh.querySelectorAll('#rate button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===S.rate));sh.querySelector('#ul').setAttribute('aria-checked',!!S.unlockAll);sh.querySelector('#brk').setAttribute('aria-checked',S.breakOff!==true)};
   sh.querySelectorAll('#rate button').forEach(b=>b.onclick=()=>{S.rate=+b.dataset.v;save();sync();speak('注音小學堂')});
   sh.querySelector('#ul').onclick=()=>{S.unlockAll=!S.unlockAll;save();sync()};
+  sh.querySelector('#brk').onclick=()=>{if(S.breakOff===true)delete S.breakOff;else S.breakOff=true;save();sync()};
   const rst=sh.querySelector('#rst');
   const reportPanel=sh.querySelector('#reportPanel'),reportButton=sh.querySelector('#reportBtn');
   reportButton.onclick=()=>{

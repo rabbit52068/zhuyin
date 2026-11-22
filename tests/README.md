@@ -7,6 +7,7 @@
 | `data.js` | All 37 example words and symbol units, curriculum/audio order, symmetric confusable pairs and distractor priority, tone/blend sets, clip files |
 | `progress.js` | Fresh v2 saves, historical/key migration, completion/unlocks, chart order, symbol attempts, corrupt storage, export/clear/import round trips and invalid-import protection |
 | `a11y.js` | Lesson/star labels, modal focus traps and return, Escape, tab semantics/arrows, native play-button keyboard handling, intro fit at 390×667/740 and unchanged tall-screen layout |
+| `stage3.js` | 3-3 review order (most-missed and stale symbols first), 3-4 daily task (3 steps, no stars, done for today), 3-6 break reminder after 15 minutes (continue, rest, parent switch) |
 | `report.js` | Parent report counts/rate ranking, practice date, empty state, live reset, gate protection and modal focus/Escape |
 | `test.js` | Stage 0: document head, start tip, speaker button, old speech after a step change, Enter spam, `finish()` twice |
 | `bub.js` | Stage 0: extra taps after all bubbles are found |
@@ -32,6 +33,7 @@ node tests/trace.js "$PWD/index.html"
 node tests/progress.js "$PWD/index.html"
 node tests/a11y.js "$PWD/index.html"
 node tests/report.js "$PWD/index.html"
+node tests/stage3.js "$PWD/index.html"
 ```
 
 Screenshots go to `tests/out/`.
