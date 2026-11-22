@@ -4,8 +4,8 @@
 
 | File | Checks |
 |---|---|
-| `data.js` | All 37 example words and symbol units, tone sets, blend symbols, spoken clip keys and audio files |
-| `progress.js` | Fresh v2 saves, v1 migration to stable lesson keys, map completion, persisted symbol attempts, corrupt JSON recovery |
+| `data.js` | All 37 example words and symbol units, curriculum/audio order, symmetric confusable pairs and distractor priority, tone/blend sets, clip files |
+| `progress.js` | Fresh v2 saves, historical v1 index migration, renamed review-key migration, completion/unlocks after unit reordering, chart order, symbol attempts, corrupt JSON recovery |
 | `a11y.js` | Lesson/star labels, modal focus traps and return, Escape, tab semantics/arrows, native play-button keyboard handling, intro fit at 390×667/740 and unchanged tall-screen layout |
 | `test.js` | Stage 0: document head, start tip, speaker button, old speech after a step change, Enter spam, `finish()` twice |
 | `bub.js` | Stage 0: extra taps after all bubbles are found |
@@ -44,6 +44,8 @@ Dialogs isolate the background with `inert` and trap focus in the top dialog. Es
 
 At heights up to 740px, intro steps reclaim the hidden feedback bar's space and place the speaker beside the smaller card. Compact intro buttons have at least 44px targets. The existing column layout and reserved feedback space remain at 844px. The browser layout checks use local fallback fonts and block remote font requests.
 
-Progress uses `zy-progress = {v:2, stars, acc, sym}`. Stars and lesson records use stable keys (`sym:ㄅ`, `review:<unit name>`, `blend:<unit name>:<zero-based set index>`, `tone:<unit name>:<zero-based set index>`); array IDs remain for rendering. Keys survive unit reordering; renaming a unit or reordering sets within a unit needs an explicit key migration. On load, v1 indices map through the current lesson order, unknown lessons and invalid entries are dropped, and a v2 save is written immediately. Bad JSON, invalid top-level values, and unsupported versions recover to empty v2. Valid v2 symbol counts survive reloads; private-mode storage errors are caught.
+Progress uses `zy-progress = {v:2, stars, acc, sym}`. Stars and lesson records use stable keys (`sym:ㄅ`, `review:<unit name>`, `blend:<unit name>:<zero-based set index>`, `tone:<unit name>:<zero-based set index>`); array IDs remain for rendering. Keys survive unit reordering; renaming a unit or reordering sets within a unit needs an explicit key migration. V1 indices retain their historical consonant → final → medial order. The old `review:結合韻` key migrates to `review:介音`; if both exist, the highest star count and newest record win (the current key wins timestamp ties). Unknown lessons and invalid entries are dropped, and normalized v2 is saved immediately. Bad JSON, invalid top-level values, and unsupported versions recover to empty v2. Valid v2 symbol counts survive reloads; private-mode storage errors are caught.
+
+The map follows `UNITS`: consonants → medials → finals → blend/tone lessons. The chart uses the same order for its three symbol groups. `SYM`/`ORDER` retain their original audio numbering. Distractors select confusable partners first, then learned symbols, then the hint pool, then other symbols, shuffling within each tier. The blend missing-consonant step additionally restricts eligible choices to consonants. The Node data test checks partner inclusion across 500 calls, target/duplicate exclusion, and priority/filtering behavior.
 
 Symbol attempts are saved immediately. Listen/picture count the target, bubbles count each wrong tap and one successful completion, and trace counts each scored failure or successful drawing. Empty trace submissions are hints, and the assisted advance after two failures adds no correct attempt. Shown option answers after two misses also add no correct attempt. Simple blend choices count both symbols; a missing-consonant question counts only that consonant. Tone choices count a one-symbol or consonant-plus-vowel/medial base, ignoring tone marks. Demonstrations and complex/three-part bases add no attempts.

@@ -2,6 +2,12 @@
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
 const LESSON_BY_KEY=new Map(LESSONS.map(l=>[l.key,l]));
+const LESSON_ALIASES=new Map([['review:結合韻','review:介音']]);
+// v1 indices predate the curriculum reorder: ORDER retains the old symbol/audio order.
+const V1_LESSONS=[
+  ...UNITS.filter(u=>u.kind==='sym').sort((a,b)=>ORDER.indexOf(a.sy[0])-ORDER.indexOf(b.sy[0])),
+  ...UNITS.filter(u=>u.kind!=='sym'),
+].flatMap(u=>u.lessons.map(id=>LESSONS[id]));
 const emptyProgress=()=>({v:2,stars:{},acc:{},sym:{}});
 const isRecord=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const countValue=v=>Number.isSafeInteger(v)&&v>=0;
@@ -9,13 +15,17 @@ function readProgress(raw){
   const out=emptyProgress();
   if(!isRecord(raw)||(raw.v!==undefined&&raw.v!==2))return out;
   const legacy=raw.v===undefined;
-  const keyOf=k=>legacy?(/^(0|[1-9]\d*)$/.test(k)?LESSONS[Number(k)]?.key:null):(LESSON_BY_KEY.has(k)?k:null);
+  const keyOf=k=>{
+    if(legacy)return /^(0|[1-9]\d*)$/.test(k)?V1_LESSONS[Number(k)]?.key:null;
+    const key=LESSON_ALIASES.get(k)||k;return LESSON_BY_KEY.has(key)?key:null;
+  };
   for(const [id,n] of Object.entries(isRecord(raw.stars)?raw.stars:{})){
-    const key=keyOf(id);if(key&&Number.isInteger(n)&&n>0&&n<=3)out.stars[key]=n;
+    const key=keyOf(id);if(key&&Number.isInteger(n)&&n>0&&n<=3)out.stars[key]=Math.max(out.stars[key]||0,n);
   }
   for(const [id,r] of Object.entries(isRecord(raw.acc)?raw.acc:{})){
     const key=keyOf(id);
-    if(key&&isRecord(r)&&['m','n','t'].every(k=>countValue(r[k])))out.acc[key]={m:r.m,n:r.n,t:r.t};
+    if(key&&isRecord(r)&&['m','n','t'].every(k=>countValue(r[k]))&&
+       (!out.acc[key]||r.t>out.acc[key].t||r.t===out.acc[key].t&&id===key))out.acc[key]={m:r.m,n:r.n,t:r.t};
   }
   // v1 has no per-symbol history; do not invent attempts from lesson completion.
   if(!legacy)for(const [s,r] of Object.entries(isRecord(raw.sym)?raw.sym:{})){
@@ -291,10 +301,13 @@ function renderPath(m){
 /* ======================= HOME: CHART ======================= */
 function renderChart(m){
   const L=learned();
-  const groups=[['聲母','21 個',ORDER.slice(0,21)],['韻母','13 個',ORDER.slice(21,34)],['介音','3 個',ORDER.slice(34)]];
+  const groups=new Map();
+  UNITS.filter(u=>u.kind==='sym').forEach(u=>{
+    if(!groups.has(u.tag))groups.set(u.tag,[]);groups.get(u.tag).push(...u.sy);
+  });
   const wrap=h(`<div class="chart"></div>`);
-  groups.forEach(([t,n,arr])=>{
-    wrap.appendChild(h(`<h2>${t}<small>${n}</small></h2>`));
+  groups.forEach((arr,t)=>{
+    wrap.appendChild(h(`<h2>${t}<small>${arr.length} 個</small></h2>`));
     const g=h(`<div class="grid"></div>`);
     arr.forEach(s=>{const b=h(`<button class="tile ${L.has(s)?'done':''}" aria-label="${s} ${wordText(s)}"><span class="s">${s}</span><span class="e">${SYM[s].e}</span></button>`);
       b.onclick=async()=>{b.classList.add('cat-bounce');setTimeout(()=>b.classList.remove('cat-bounce'),600);const g=++AUD;await saySym(s);if(g!==AUD)return;await wait(150);if(g===AUD)speak(wordText(s))};
@@ -309,11 +322,16 @@ function renderChart(m){
 
 /* ======================= LESSON ENGINE ======================= */
 let LS=null; // {lesson, steps, i, mistakes, layer}
-function distractors(target,n,poolHint){
-  const L=[...learned()].filter(s=>s!==target);
-  let pool=shuffle([...new Set([...(poolHint||[]).filter(s=>s!==target),...L])]);
-  if(pool.length<n) pool=pool.concat(shuffle(ORDER.filter(s=>s!==target&&!pool.includes(s))));
-  return pool.slice(0,n);
+function distractors(target,n,poolHint,allowed=ORDER){
+  const valid=new Set(ORDER.filter(s=>allowed.includes(s))),seen=new Set([target]),out=[];
+  // Preserve priority when selecting; optionRow separately randomizes button positions.
+  for(const pool of [CONFUSE[target]||[],[...learned()],poolHint||[],ORDER]){
+    for(const s of shuffle([...new Set(pool)])){
+      if(out.length>=n)return out;
+      if(valid.has(s)&&!seen.has(s)){seen.add(s);out.push(s)}
+    }
+  }
+  return out;
 }
 function buildSteps(L){
   const u=UNITS[L.ui];
@@ -581,7 +599,7 @@ const STEPS={
   const bl=h(`<div class="blend"><span class="p a"><span class="blank" style="font-size:1.6rem">?</span></span><span class="op">＋</span><span class="p b">${b}</span></div>`);
   stage.append(bl);
   const sp=speakerBtn(()=>speak(ch,{rate:.7}),true);stage.append(sp);
-  const opts=[a,...distractors(a,2,['ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄍ','ㄎ','ㄏ','ㄓ'])];
+  const opts=[a,...distractors(a,2,['ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄍ','ㄎ','ㄏ','ㄓ'],[...INITIALS])];
   stage.append(optionRow(opts,a,async()=>{bl.querySelector('.a').textContent=a;correct(`${a}${b}，${ch}`,[()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{symbols:simpleSymbols(a),label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
   voiceSeq([()=>speak(ch,{rate:.7}),'前面要放哪一個注音？']);
  },

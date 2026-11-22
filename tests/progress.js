@@ -84,6 +84,46 @@ const EMPTY = { v: 2, stars: {}, acc: {}, sym: {} };
       assert.equal(r.m, 1);
     });
 
+    await scenario('progress renames the saved medial review key without losing stars or records',
+      JSON.stringify({ v: 2, stars: { 'review:結合韻': 3, 'sym:ㄧ': 3 },
+        acc: { 'review:結合韻': { m: 2, n: 7, t: 10 } }, sym: { 'ㄧ': { ok: 1, ng: 0, t: 11 } } }), async page => {
+        const r = await page.evaluate(() => ({ saved: JSON.parse(localStorage.getItem('zy-progress')),
+          label: document.querySelector('[data-lesson-key="review:介音"]').getAttribute('aria-label'), records: recordHTML() }));
+        assert.deepEqual(r.saved, { v: 2, stars: { 'review:介音': 3, 'sym:ㄧ': 3 },
+          acc: { 'review:介音': { m: 2, n: 7, t: 10 } }, sym: { 'ㄧ': { ok: 1, ng: 0, t: 11 } } });
+        assert.equal(r.label, '複習：介音，3 顆星');
+        assert.ok(r.records.includes('複習・介音') && !r.records.includes('結合韻'));
+      });
+
+    await scenario('progress v1 indices retain the historical order after medials move',
+      JSON.stringify({ stars: { 27: 3, 43: 3, 46: 3 }, acc: { 46: { m: 1, n: 7, t: 10 } } }), async page => {
+        const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('zy-progress')));
+        assert.deepEqual(saved, { v: 2, stars: { 'sym:ㄚ': 3, 'sym:ㄧ': 3, 'review:介音': 3 },
+          acc: { 'review:介音': { m: 1, n: 7, t: 10 } }, sym: {} });
+      });
+
+    const completed = Object.fromEntries([
+      ...[...'ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ'].map(s => ['sym:' + s, 3]),
+      ...['雙唇和唇齒', '舌尖音', '舌根音', '舌面音', '翹舌音', '平舌音', '單韻母', '複韻母', '聲隨韻母'].map(name => ['review:' + name, 3]),
+    ]);
+    await scenario('progress old completed finals stay open and the new path starts unfinished medials',
+      JSON.stringify({ v: 2, stars: completed, acc: {}, sym: {} }), async page => {
+        const r = await page.evaluate(() => ({ current: LESSONS[currentId()].key, open: unlocked(currentId()),
+          currentNode: document.querySelector('.node.cur').dataset.lessonKey,
+          finalsOpen: LESSONS.filter(l => UNITS[l.ui].tag === '韻母').every(l => starsOf(l) === 3 && unlocked(l.id)) }));
+        assert.equal(r.current, 'sym:ㄧ'); assert.equal(r.currentNode, 'sym:ㄧ');
+        assert.equal(r.open, true); assert.equal(r.finalsOpen, true);
+        await page.click('#tabChart');
+        const chart = await page.evaluate(() => ({ headings: [...document.querySelectorAll('.chart h2')].map(h => h.firstChild.textContent),
+          symbols: [...document.querySelectorAll('.tile .s')].map(el => el.textContent) }));
+        assert.deepEqual(chart.headings, ['聲母', '介音', '韻母']);
+        assert.deepEqual(chart.symbols.slice(21, 24), ['ㄧ', 'ㄨ', 'ㄩ']);
+        assert.equal(chart.symbols[24], 'ㄚ');
+        assert.equal(new Set(chart.symbols).size, 37);
+        await page.click('#tabPath'); await page.click('.node.cur');
+        assert.equal(await page.evaluate(() => LS.L.key), 'sym:ㄧ');
+      });
+
     await scenario('progress corrupt JSON recovers to empty v2 without crashing', '{broken', async page => {
       const r = await page.evaluate(() => ({ p: P, saved: JSON.parse(localStorage.getItem('zy-progress')),
         nodes: document.querySelectorAll('.node').length }));
