@@ -183,7 +183,7 @@ function renderChart(m){
     wrap.appendChild(g);
   });
   wrap.appendChild(h(`<p class="note">點一下注音，聽它怎麼唸，再聽一個例詞。綠色的是已經學過的注音。</p>`));
-  if(!hasZh) wrap.appendChild(h(`<div class="warn">這台裝置好像沒有中文語音。可以到系統設定加入「中文（台灣）」語音，或改用 Chrome、Edge、Safari 開啟，就能聽到發音。</div>`));
+  if(!hasZh&&!HAS_CLIPS) wrap.appendChild(h(`<div class="warn">這台裝置好像沒有中文語音。可以到系統設定加入「中文（台灣）」語音，或改用 Chrome、Edge、Safari 開啟，就能聽到發音。</div>`));
   m.appendChild(wrap);
 }
 
@@ -527,7 +527,8 @@ function openSettings(){
     <div class="set"><span>全部解鎖<small>可以直接跳到任何一課</small></span><button class="sw" role="switch" id="ul" aria-label="全部解鎖"></button></div>
     ${recordHTML()}
     <div class="set"><span>清除學習紀錄<small>星星和進度會回到一開始</small></span><button class="btn ghost" id="rst" style="min-width:0;padding:10px 14px;font-size:.95rem">清除</button></div>
-    ${hasZh?'':'<div class="warn">沒有找到中文語音：請在系統設定加入「中文（台灣）」語音，或改用 Chrome、Edge、Safari。</div>'}
+    ${hasZh||HAS_CLIPS?'':'<div class="warn">沒有找到中文語音：請在系統設定加入「中文（台灣）」語音，或改用 Chrome、Edge、Safari。</div>'}
+    <p class="credit">注音發音：2017 © 教育部，國語注音符號手冊-開放部件（<a href="https://creativecommons.org/licenses/by/4.0/deed.zh_TW" target="_blank" rel="noopener">CC BY 4.0</a>）。題目與例詞：Microsoft Edge 語音合成（曉臻、曉雨）。</p>
     <button class="btn wide" id="cls">好了</button></div></div>`);
   const sync=()=>{sh.querySelectorAll('#rate button').forEach(b=>b.setAttribute('aria-pressed',+b.dataset.v===S.rate));sh.querySelector('#ul').setAttribute('aria-checked',!!S.unlockAll)};
   sh.querySelectorAll('#rate button').forEach(b=>b.onclick=()=>{S.rate=+b.dataset.v;save();sync();speak('注音小學堂')});

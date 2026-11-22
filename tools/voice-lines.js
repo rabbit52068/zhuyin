@@ -3,9 +3,9 @@
 
    node tools/voice-lines.js           print audio/lines.tsv (file, key, text to record)
    node tools/voice-lines.js clips     write clips.js from the files that exist in audio/
-   node tools/voice-lines.js clips --with-sym
-                                       also map symbol sounds in audio/sym/ (local only;
-                                       those recordings are not cleared for the public repo)
+
+   Symbol sounds (audio/sym/NN.mp3, NN = position in ORDER) come from the Ministry of Education
+   《國語注音符號手冊》開放部件, CC BY 4.0. Other lines are rendered with Edge voices (see DECISIONS.md).
 
    The key must match clipKey() in app.js: the text without punctuation.
    tests/voice.js plays lessons and fails if the game asks for a key that is not listed here. */
@@ -55,10 +55,8 @@ function lines() {
 if (require.main === module) {
   const L = lines();
   if (process.argv[2] === 'clips') {
-    const withSym = process.argv.includes('--with-sym');
     const map = {};
     for (const l of L) {
-      if (l.kind === 'sym' && !withSym) continue;
       if (fs.existsSync(path.join(ROOT, 'audio', l.file))) map[l.key] = l.file;
     }
     fs.writeFileSync(path.join(ROOT, 'clips.js'),
