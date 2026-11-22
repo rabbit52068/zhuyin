@@ -44,7 +44,7 @@ const OUT=require('path').join(__dirname,'out/');require('fs').mkdirSync(OUT,{re
   await pg.click('#askStay'); const gone=await pg.evaluate(()=>!document.querySelector('.ask')&&!!LS);
   ok('1-6 exit asks, stay keeps lesson',ask&&gone);
   // 1-4 finish: 3 stars despite mistakes, record kept
-  const st4=await pg.evaluate(()=>{finish();return {stars:P.stars[0],acc:P.acc[0],on:document.querySelectorAll('.bigstars i.on').length,h:document.querySelector('.result h2').textContent}});
+  const st4=await pg.evaluate(()=>{finish();return {stars:P.stars[LS.L.key],acc:P.acc[LS.L.key],on:document.querySelectorAll('.bigstars i.on').length,h:document.querySelector('.result h2').textContent}});
   ok('1-4 3 stars for finishing, mistakes recorded',st4.stars===3&&st4.on===3&&st4.acc&&st4.acc.m>=2,JSON.stringify(st4));
   await pg.click('#doneBtn'); await pg.waitForTimeout(200);
   // 1-7 parent gate
