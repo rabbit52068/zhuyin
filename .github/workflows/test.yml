@@ -26,7 +26,7 @@ jobs:
         run: |
           set -uo pipefail
           test_status=0
-          for test in data progress test test1 bub voice trace; do
+          for test in data progress a11y test test1 bub voice trace; do
             log=$(mktemp)
             echo "Running tests/$test.js"
             if node "tests/$test.js" "$GITHUB_WORKSPACE/index.html" 2>&1 | tee "$log"; then
