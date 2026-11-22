@@ -229,9 +229,10 @@ const saySym=s=>speak(SYM[s].say,{rate:Math.min(S.rate,.75),key:'sym:'+s});
    sequence bumps it, so older sequences stop at their next await. It is separate from STEP, which owns
    lesson state, so interrupting speech never cancels gameplay. */
 let AUD=0;
+const GAP=500; // pause between clips in one sequence (owner's choice, 2026-11-22)
 function hush(){AUD++;stopClip();try{speechSynthesis.cancel()}catch(e){}}
 async function sayTap(items){const g=++AUD;
-  for(const it of items){if(g!==AUD)return;await (typeof it==='string'?speak(it,{rate:1}):it());if(g!==AUD)return;await wait(150)}}
+  for(const it of items){if(g!==AUD)return;await (typeof it==='string'?speak(it,{rate:1}):it());if(g!==AUD)return;await wait(GAP)}}
 /* a single sound the child asked for (speaker, example, letter): stops any sequence that is talking */
 const tap=fn=>()=>{AUD++;return fn()};
 const READABLE=new WeakMap();
@@ -331,7 +332,7 @@ function renderChart(m){
     wrap.appendChild(h(`<h2>${t}<small>${arr.length} 個</small></h2>`));
     const g=h(`<div class="grid"></div>`);
     arr.forEach(s=>{const b=h(`<button class="tile ${L.has(s)?'done':''}" aria-label="${s} ${wordText(s)}"><span class="s">${s}</span><span class="e">${SYM[s].e}</span></button>`);
-      b.onclick=async()=>{b.classList.add('cat-bounce');setTimeout(()=>b.classList.remove('cat-bounce'),600);const g=++AUD;await saySym(s);if(g!==AUD)return;await wait(150);if(g===AUD)speak(wordText(s))};
+      b.onclick=async()=>{b.classList.add('cat-bounce');setTimeout(()=>b.classList.remove('cat-bounce'),600);const g=++AUD;await saySym(s);if(g!==AUD)return;await wait(GAP);if(g===AUD)speak(wordText(s))};
       g.appendChild(b)});
     wrap.appendChild(g);
   });
@@ -455,7 +456,7 @@ function wrong({count=true}={}){
 /* Read the question aloud, then play its sounds, one after another (1-1). Strings are spoken; functions return a promise. */
 async function sayAll(items,t,g=AUD){
   const on=()=>live(t)&&g===AUD;
-  for(const it of items){if(!on())return;await (typeof it==='string'?speak(it,{rate:1}):it());if(!on())return;await wait(200)}}
+  for(const it of items){if(!on())return;await (typeof it==='string'?speak(it,{rate:1}):it());if(!on())return;await wait(GAP)}}
 function voiceSeq(items){const t=STEP,g=++AUD;(async()=>{await wait(300);await sayAll(items,t,g)})()}
 /* 3-6 break reminder: play time adds up between steps (gaps over 5 minutes are not play). After 15 minutes
    the cat suggests a rest before the next step; 「再玩一下」 asks again 10 minutes later. Parents can turn it off. */
@@ -628,7 +629,7 @@ const STEPS={
   go.onclick=async()=>{
     if(played){next();return}
     played=true;go.disabled=true;const t=STEP,g=++AUD,say=f=>g===AUD?f():null; // speech stops if the child taps something else; the demo still finishes
-    await say(()=>saySym(a));if(!live(t))return;await wait(200);await say(()=>saySym(b));if(!live(t))return;await wait(200);
+    await say(()=>saySym(a));if(!live(t))return;await wait(GAP);await say(()=>saySym(b));if(!live(t))return;await wait(GAP);
     bl.classList.add('go');res.classList.add('show');sfx.pop();await wait(500);if(!live(t))return;await say(()=>speak(ch,{rate:.7}));
     go.textContent='繼續';go.disabled=false;go.classList.add('go');
   };
