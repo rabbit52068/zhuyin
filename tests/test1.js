@@ -13,7 +13,7 @@ const OUT=require('path').join(__dirname,'out/');require('fs').mkdirSync(OUT,{re
   await pg.screenshot({path:OUT+'s1-map.png'});
   // 1-1 intro + listen prompts spoken
   await pg.click('.node.cur'); await pg.waitForTimeout(1500);
-  let said=await pg.evaluate(()=>window.__said.slice()); ok('1-1 intro spoken',said[0]==='這是新朋友！'&&said.includes('玻'),JSON.stringify(said));
+  let said=await pg.evaluate(()=>window.__said.slice()); ok('1-1 intro spoken',said[0]==='這是新朋友！點一下聽聽看'&&said.includes('玻'),JSON.stringify(said));
   await pg.evaluate(()=>{window.__said=[]}); await pg.click('text=我記住了'); await pg.waitForTimeout(900);
   said=await pg.evaluate(()=>window.__said.slice()); ok('1-1 listen prompt then sound',said[0]==='聽一聽，是哪一個注音？'&&said[1]==='玻',JSON.stringify(said));
   // 1-2 first miss: glow + think cat + encouragement
