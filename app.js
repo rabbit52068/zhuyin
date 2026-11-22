@@ -115,9 +115,15 @@ function tts(text,{rate}={}){
 const saySym=s=>speak(SYM[s].say,{rate:Math.min(S.rate,.75),key:'sym:'+s});
 /* Tap to hear on-screen text (#7): a speaker icon in front of the text; tapping the icon or the text plays
    it. items are voiceSeq items (strings, or functions that return a promise). A new tap cancels the last one. */
-let TAP=0;
-async function sayTap(items){const t=++TAP;
-  for(const it of items){if(t!==TAP)return;await (typeof it==='string'?speak(it,{rate:1}):it());if(t!==TAP)return;await wait(150)}}
+/* AUD: one token for every speech sequence (automatic prompts, taps, speaker buttons). Starting a new
+   sequence bumps it, so older sequences stop at their next await. It is separate from STEP, which owns
+   lesson state, so interrupting speech never cancels gameplay. */
+let AUD=0;
+function hush(){AUD++;stopClip();try{speechSynthesis.cancel()}catch(e){}}
+async function sayTap(items){const g=++AUD;
+  for(const it of items){if(g!==AUD)return;await (typeof it==='string'?speak(it,{rate:1}):it());if(g!==AUD)return;await wait(150)}}
+/* a single sound the child asked for (speaker, example, letter): stops any sequence that is talking */
+const tap=fn=>()=>{AUD++;return fn()};
 function readable(el,items){
   if(!el.querySelector(':scope>.say'))el.insertAdjacentHTML('afterbegin',`<button class="say" type="button" aria-label="唸給我聽">${SPK}</button>`);
   el.classList.add('readable');
@@ -138,6 +144,7 @@ const sfx={ok:()=>tone([[660,.12],[880,.12],[1320,.25]]),no:()=>tone([[220,.18,'
 const OFFS=[0,45,70,45,0,-45,-70,-45];
 let tab='path';
 function render(){
+  hush(); // the old view's speech must not continue on the new one
   $('#starCount').textContent=totalStars();
   $('#tabPath').setAttribute('aria-selected',tab==='path');
   $('#tabChart').setAttribute('aria-selected',tab==='chart');
@@ -190,7 +197,7 @@ function renderChart(m){
     wrap.appendChild(h(`<h2>${t}<small>${n}</small></h2>`));
     const g=h(`<div class="grid"></div>`);
     arr.forEach(s=>{const b=h(`<button class="tile ${L.has(s)?'done':''}" aria-label="${s} ${wordText(s)}"><span class="s">${s}</span><span class="e">${SYM[s].e}</span></button>`);
-      b.onclick=async()=>{b.classList.add('cat-bounce');setTimeout(()=>b.classList.remove('cat-bounce'),600);await saySym(s);await wait(150);speak(wordText(s))};
+      b.onclick=async()=>{b.classList.add('cat-bounce');setTimeout(()=>b.classList.remove('cat-bounce'),600);const g=++AUD;await saySym(s);if(g!==AUD)return;await wait(150);if(g===AUD)speak(wordText(s))};
       g.appendChild(b)});
     wrap.appendChild(g);
   });
@@ -236,7 +243,7 @@ function startLesson(id){
 let STEP=0;
 const live=t=>!!LS&&t===STEP;
 function later(ms,fn){const t=STEP;setTimeout(()=>{if(live(t))fn()},ms)}
-function stopVoice(){STEP++;TAP++;stopClip();try{speechSynthesis.cancel()}catch(e){}}
+function stopVoice(){STEP++;hush()}
 function askQuit(){
   if(!LS||LS.layer.querySelector('.ask'))return;
   if(LS.done)return quitLesson();
@@ -273,7 +280,7 @@ async function correct(text,say){
   LS.layer.querySelector('#fbTxt').textContent=p;
   const fb=LS.layer.querySelector('#fb');fb.inert=false;fb.classList.add('show');LS.fbAt=Date.now();
   LS.layer.querySelector('#fbGo').focus({preventScroll:true});
-  later(350,()=>sayAll(say,STEP));
+  later(350,()=>sayAll(say,STEP,++AUD));
 }
 const ENCOURAGE=['再想想看！','沒關係，再試一次！','慢慢來，你可以的！'];
 function catMood(mood){const c=LS&&LS.layer.querySelector('#stage .prompt svg');if(c)c.outerHTML=catSVG(mood)}
@@ -284,15 +291,16 @@ function wrong({count=true}={}){
   sfx.no();catMood('think');
   const t=STEP;
   return new Promise(r=>setTimeout(async()=>{
-    if(live(t))await speak(pick(ENCOURAGE).replace(/！/g,''),{rate:1});
+    if(live(t)){AUD++;await speak(pick(ENCOURAGE).replace(/！/g,''),{rate:1})}
     if(live(t))catMood('happy');
     r(live(t));
   },250));
 }
 /* Read the question aloud, then play its sounds, one after another (1-1). Strings are spoken; functions return a promise. */
-async function sayAll(items,t){
-  for(const it of items){if(!live(t))return;await (typeof it==='string'?speak(it,{rate:1}):it());if(!live(t))return;await wait(200)}}
-function voiceSeq(items){const t=STEP;(async()=>{await wait(300);await sayAll(items,t)})()}
+async function sayAll(items,t,g=AUD){
+  const on=()=>live(t)&&g===AUD;
+  for(const it of items){if(!on())return;await (typeof it==='string'?speak(it,{rate:1}):it());if(!on())return;await wait(200)}}
+function voiceSeq(items){const t=STEP,g=++AUD;(async()=>{await wait(300);await sayAll(items,t,g)})()}
 function next(){
   if(!LS||LS.done)return;
   LS.i++;
@@ -316,13 +324,13 @@ function finish(){
   readable(col.querySelector('.result h2'),[title]);readable(col.querySelector('.result p'),more);
   const done=col.querySelector('#doneBtn');done.onclick=quitLesson;done.focus({preventScroll:true});
   sfx.win(); confetti();
-  later(400,()=>sayAll([title,...more],STEP));
+  later(400,()=>sayAll([title,...more],STEP,++AUD));
 }
 
 /* ---------- step renderers ---------- */
 function speakerBtn(fn,sm){const b=h(`<button class="speak ${sm?'sm':''}" aria-label="再聽一次">${SPK}</button>`);
   b.play=()=>{b.classList.remove('playing');void b.offsetWidth;b.classList.add('playing');return fn()};
-  b.onclick=()=>{b.play()};return b}
+  b.onclick=()=>{AUD++;b.play()};return b}
 /* say: what the play icon reads (default: the text itself) */
 function prompt(text,mood='happy',say){const el=h(`<div class="prompt">${catSVG(mood)}<span>${text}</span></div>`);
   readable(el.querySelector('span'),say||[text]);return el}
@@ -351,9 +359,9 @@ const STEPS={
   card.querySelector('.s').onclick=()=>sp.click();
   const cr=h(`<div class="cardrow"></div>`);cr.append(card,sp);stage.append(cr);
   const ex=h(`<button class="example" aria-label="聽例詞"><span class="em">${SYM[s].e}</span>${wordHTML(s,{hl:s})}</button>`);
-  ex.onclick=()=>speak(wordText(s));
+  ex.onclick=tap(()=>speak(wordText(s)));
   stage.append(ex);
-  stage.append(readable(h(`<p class="hint">「${s}」就在「${wordText(s)}」裡面，紅色的就是它</p>`),[()=>saySym(s),'就在',()=>speak(wordText(s),{rate:1}),'裡面，紅色的就是它']));
+  stage.append(readable(h(`<p class="hint">「${s}」就在「${wordText(s)}」裡面，紅色的就是它</p>`),[()=>saySym(s),`就在${wordText(s)}裡面，紅色的就是它`]));
   const go=h(`<button class="btn go">我記住了</button>`);go.onclick=next;stage.append(go);
   voiceSeq(['這是新朋友！點一下聽聽看',()=>sp.play(),()=>speak(wordText(s),{rate:1})]); // symbol, then its word: each part is a whole clip
  },
@@ -366,7 +374,7 @@ const STEPS={
  picture(stage,{s,peers}){
   stage.append(prompt(`「${wordText(s)}」少了哪一個注音？`,'happy',[()=>speak(wordText(s),{rate:1}),'少了哪一個注音？']));
   const ex=h(`<button class="example" aria-label="聽例詞"><span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{blank:s})}</button>`);
-  ex.onclick=()=>speak(wordText(s));stage.append(ex);
+  ex.onclick=tap(()=>speak(wordText(s)));stage.append(ex);
   stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>{ex.innerHTML=`<span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{hl:s})}`;correct()}));
   voiceSeq([()=>speak(wordText(s),{rate:1}),'少了哪一個注音？']);
  },
@@ -430,17 +438,17 @@ const STEPS={
  blendDemo(stage,{it:[a,b,ch]}){
   stage.append(prompt('兩個注音拼在一起，會變成什麼？','happy'));
   const bl=h(`<div class="blend"><button class="p a">${a}</button><span class="op">＋</span><button class="p b">${b}</button></div>`);
-  bl.querySelector('.a').onclick=()=>saySym(a);bl.querySelector('.b').onclick=()=>saySym(b);
+  bl.querySelector('.a').onclick=tap(()=>saySym(a));bl.querySelector('.b').onclick=tap(()=>saySym(b));
   stage.append(bl);
-  const res=h(`<button class="res" aria-label="聽">${wz(ch,a+b)}</button>`);res.onclick=()=>speak(ch);stage.append(res);
+  const res=h(`<button class="res" aria-label="聽">${wz(ch,a+b)}</button>`);res.onclick=tap(()=>speak(ch));stage.append(res);
   const go=h(`<button class="btn">拼拼看！</button>`);stage.append(go);
   voiceSeq(['兩個注音拼在一起，會變成什麼？']);
   let played=false;
   go.onclick=async()=>{
     if(played){next();return}
-    played=true;go.disabled=true;const t=STEP;
-    await saySym(a);if(!live(t))return;await wait(200);await saySym(b);if(!live(t))return;await wait(200);
-    bl.classList.add('go');res.classList.add('show');sfx.pop();await wait(500);if(!live(t))return;await speak(ch,{rate:.7});
+    played=true;go.disabled=true;const t=STEP,g=++AUD,say=f=>g===AUD?f():null; // speech stops if the child taps something else; the demo still finishes
+    await say(()=>saySym(a));if(!live(t))return;await wait(200);await say(()=>saySym(b));if(!live(t))return;await wait(200);
+    bl.classList.add('go');res.classList.add('show');sfx.pop();await wait(500);if(!live(t))return;await say(()=>speak(ch,{rate:.7}));
     go.textContent='繼續';go.disabled=false;go.classList.add('go');
   };
  },
@@ -465,7 +473,7 @@ const STEPS={
   const paths=['M4 8h36','M4 26L40 6','M4 8Q22 34 40 6','M4 6L40 26'];
   const g=h(`<div class="tones"></div>`);
   set.forEach(([ch,zy],k)=>{const b=h(`<button class="tcard"><span>${wz(ch,zy)}</span><span><svg viewBox="0 0 44 32"><path d="${paths[k]}"/></svg><small>${TONE_NAME[k]}</small></span></button>`);
-    b.onclick=()=>speak(ch,{rate:.7});g.appendChild(b)});
+    b.onclick=tap(()=>speak(ch,{rate:.7}));g.appendChild(b)});
   stage.append(g);
   const go=h(`<button class="btn go">我聽完了</button>`);go.onclick=next;stage.append(go);
   voiceSeq(['同一個拼音，有四種唱法，點點看！',...set.map(([ch])=>()=>speak(ch,{rate:.7}))]);

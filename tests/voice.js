@@ -65,9 +65,21 @@ const KEYS = new Set(lines().map(l => l.key));
   const hint = await pg.evaluate(async () => { startLesson(0); await new Promise(r => setTimeout(r, 2500));
     const el = document.querySelector('#stage .hint'); window.__played = [];
     el.click(); await new Promise(r => setTimeout(r, 900)); return { icon: !!el.querySelector('.say'), p: window.__played.slice() } });
-  ok('#7 intro hint reads aloud when the text is tapped', hint.icon && hint.p[0] === 'sym/01.mp3' && hint.p.length === 4, JSON.stringify(hint.p));
+  ok('#7 intro hint reads aloud when the text is tapped', hint.icon && hint.p[0] === 'sym/01.mp3' && /^v\/hint-001\.mp3$/.test(hint.p[1]) && hint.p.length === 2, JSON.stringify(hint.p));
   const prompts = await pg.evaluate(() => [...document.querySelectorAll('#stage .prompt span')].every(s => s.querySelector('.say')));
   ok('#7 lesson prompt has a play icon', prompts);
+  // Codex R1 #1: tapping a sentence during an automatic prompt stops the prompt for good
+  const overlap = await pg.evaluate(async () => { if (LS) quitLesson(); startLesson(0);
+    await new Promise(r => setTimeout(r, 100)); window.__played = [];
+    document.querySelector('#stage .hint').click();                       // tap before the auto prompt starts
+    await new Promise(r => setTimeout(r, 2500)); return window.__played.slice() });
+  ok('R1#1 a tap cancels the pending automatic prompt', overlap.length === 2 && overlap[0] === 'sym/01.mp3', JSON.stringify(overlap));
+  // Codex R1 #2: switching tabs stops the map greeting
+  const tabs = await pg.evaluate(async () => { if (LS) quitLesson(); tab = 'path'; render();
+    window.__played = []; document.querySelector('.hello p .say').click();
+    await new Promise(r => setTimeout(r, 30)); document.querySelector('#tabChart').click();
+    await new Promise(r => setTimeout(r, 900)); return window.__played.slice() });
+  ok('R1#2 switching tabs stops the map greeting', tabs.length === 1, JSON.stringify(tabs));
   ok('no page errors', errs.length === 0, errs.join(' | '));
   await b.close();
 })();
