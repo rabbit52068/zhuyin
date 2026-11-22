@@ -338,7 +338,7 @@ const STEPS={
   stage.append(ex);
   stage.append(h(`<p class="hint">「${s}」就在「${wordText(s)}」裡面，紅色的就是它</p>`));
   const go=h(`<button class="btn go">我記住了</button>`);go.onclick=next;stage.append(go);
-  voiceSeq(['這是新朋友！',()=>sp.play(),`${wordText(s)}的`,()=>saySym(s)]);
+  voiceSeq(['這是新朋友！',()=>sp.play(),()=>speak(wordText(s),{rate:1})]); // symbol, then its word: each part is a whole clip
  },
  listen(stage,{s,peers}){
   stage.append(prompt('聽一聽，是哪一個注音？'));
