@@ -1,14 +1,54 @@
 /* ======================= STATE ======================= */
 const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
-let P=store.get('zy-progress',{stars:{}});
-P.acc=P.acc||{}; // per-lesson record for parents: {m: mistakes, n: questions, t: time}
+const LESSON_BY_KEY=new Map(LESSONS.map(l=>[l.key,l]));
+const emptyProgress=()=>({v:2,stars:{},acc:{},sym:{}});
+const isRecord=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
+const countValue=v=>Number.isSafeInteger(v)&&v>=0;
+function readProgress(raw){
+  const out=emptyProgress();
+  if(!isRecord(raw)||(raw.v!==undefined&&raw.v!==2))return out;
+  const legacy=raw.v===undefined;
+  const keyOf=k=>legacy?(/^(0|[1-9]\d*)$/.test(k)?LESSONS[Number(k)]?.key:null):(LESSON_BY_KEY.has(k)?k:null);
+  for(const [id,n] of Object.entries(isRecord(raw.stars)?raw.stars:{})){
+    const key=keyOf(id);if(key&&Number.isInteger(n)&&n>0&&n<=3)out.stars[key]=n;
+  }
+  for(const [id,r] of Object.entries(isRecord(raw.acc)?raw.acc:{})){
+    const key=keyOf(id);
+    if(key&&isRecord(r)&&['m','n','t'].every(k=>countValue(r[k])))out.acc[key]={m:r.m,n:r.n,t:r.t};
+  }
+  // v1 has no per-symbol history; do not invent attempts from lesson completion.
+  if(!legacy)for(const [s,r] of Object.entries(isRecord(raw.sym)?raw.sym:{})){
+    if(Object.hasOwn(SYM,s)&&isRecord(r)&&['ok','ng','t'].every(k=>countValue(r[k])))out.sym[s]={ok:r.ok,ng:r.ng,t:r.t};
+  }
+  return out;
+}
+let P=readProgress(store.get('zy-progress',null));
+store.set('zy-progress',P); // persist migration, fresh starts, and repaired saves immediately
 let S=store.get('zy-settings',{rate:0.8,unlockAll:false});
 const save=()=>{store.set('zy-progress',P);store.set('zy-settings',S)};
+const starsOf=l=>l?P.stars[l.key]||0:0;
 const totalStars=()=>Object.values(P.stars).reduce((a,b)=>a+b,0);
-const unlocked=id=>S.unlockAll||id===0||P.stars[id-1]>0||P.stars[id]>0;
-const currentId=()=>{for(const l of LESSONS) if(!P.stars[l.id]) return l.id; return -1};
-const learned=()=>{const set=new Set();LESSONS.forEach(l=>{if(l.type==='sym'&&P.stars[l.id])set.add(l.s)});return set};
+const unlocked=id=>S.unlockAll||id===0||starsOf(LESSONS[id-1])>0||starsOf(LESSONS[id])>0;
+const currentId=()=>{for(const l of LESSONS) if(!starsOf(l)) return l.id; return -1};
+const learned=()=>{const set=new Set();LESSONS.forEach(l=>{if(l.type==='sym'&&starsOf(l))set.add(l.s)});return set};
+function recordPractice(symbols,ok){
+  const t=Date.now();
+  for(const s of new Set(symbols)){
+    if(!Object.hasOwn(SYM,s))continue;
+    const r=P.sym[s]||(P.sym[s]={ok:0,ng:0,t:0});r[ok?'ok':'ng']++;r.t=t;
+  }
+  store.set('zy-progress',P); // keep attempts even when the lesson is left unfinished
+}
+const INITIALS=new Set(UNITS.filter(u=>u.kind==='sym'&&u.tag==='聲母').flatMap(u=>[...u.sy]));
+const FINALS=new Set(UNITS.filter(u=>u.kind==='sym'&&['韻母','介音'].includes(u.tag)).flatMap(u=>[...u.sy]));
+function simpleSymbols(zy){
+  const sy=[...zy.replace(/[ˊˇˋ˙]/g,'')];
+  // A single symbol or consonant + vowel/medial. Skip future three-part/complex items.
+  const single=sy.length===1&&Object.hasOwn(SYM,sy[0]);
+  const pair=sy.length===2&&INITIALS.has(sy[0])&&FINALS.has(sy[1]);
+  return single||pair?sy:[];
+}
 
 /* ======================= UTIL ======================= */
 const $=s=>document.querySelector(s);
@@ -168,7 +208,7 @@ function renderPath(m){
       <div class="nodes"></div></section>`);
     const nodes=sec.querySelector('.nodes');
     u.lessons.forEach((id,k)=>{
-      const L=LESSONS[id], open=unlocked(id), st=P.stars[id]||0, x=OFFS[n++%OFFS.length];
+      const L=LESSONS[id], open=unlocked(id), st=starsOf(L), x=OFFS[n++%OFFS.length];
       const label = L.type==='sym'?L.s : L.type==='review'?'🎈' : L.type==='blend'?(L.set[0][0]+L.set[0][1]) : '<span style="font-family:var(--f-ui);font-size:1.6rem">ˊˇˋ</span>';
       const w=h(`<div class="node-wrap" style="--x:${x}"></div>`);
       const b=h(`<button class="node ${open?'':'lock'} ${L.type==='review'?'review':''} ${id===cur?'cur':''}" aria-label="${open?'開始':'尚未解鎖'}"></button>`);
@@ -321,8 +361,8 @@ function finish(){
   if(LS.done)return; LS.done=true;
   setProg();
   const stars=3, perfect=LS.mistakes===0; // finishing earns all 3 stars (1-4)
-  const id=LS.L.id;
-  P.stars[id]=3; P.acc[id]={m:LS.mistakes,n:LS.steps.length,t:Date.now()}; save();
+  const key=LS.L.key;
+  P.stars[key]=3; P.acc[key]={m:LS.mistakes,n:LS.steps.length,t:Date.now()}; save();
   const col=LS.layer.querySelector('.col');
   const fb=LS.layer.querySelector('#fb');fb.classList.remove('show');fb.inert=true;
   col.querySelector('.stage').outerHTML=`<div class="result">${catSVG('happy').replace('<svg','<svg class="big cat-bounce"')}
@@ -344,7 +384,7 @@ function speakerBtn(fn,sm){const b=h(`<button class="speak ${sm?'sm':''}" aria-l
 /* say: what the play icon reads (default: the text itself) */
 function prompt(text,mood='happy',say){const el=h(`<div class="prompt">${catSVG(mood)}<span>${text}</span></div>`);
   readable(el.querySelector('span'),say||[text]);return el}
-function optionRow(items,target,onRight,{wide=false,label=null,render=null}={}){
+function optionRow(items,target,onRight,{wide=false,label=null,render=null,symbols=[]}={}){
   const row=h(`<div class="opts"></div>`);let done=false,miss=0,tb=null;
   const win=b=>{done=true;b.classList.remove('glow');b.classList.add('ok');row.querySelectorAll('.opt').forEach(o=>{if(o!==b)o.classList.add('dim')})};
   shuffle(items).forEach(it=>{
@@ -352,8 +392,8 @@ function optionRow(items,target,onRight,{wide=false,label=null,render=null}={}){
     b.innerHTML=render?render(it):it;
     if(it===target)tb=b;
     b.onclick=async()=>{if(done)return;
-      if(it===target){win(b);onRight&&onRight();return}
-      b.classList.remove('no');void b.offsetWidth;b.classList.add('no');miss++;
+      if(it===target){win(b);recordPractice(symbols,true);onRight&&onRight();return}
+      b.classList.remove('no');void b.offsetWidth;b.classList.add('no');recordPractice(symbols,false);miss++;
       if(miss>=2){win(tb);const w=wrong();if(await w){LS.demo=true;correct.since=w.g;onRight&&onRight()}return} // 1-3: show the answer, move on
       tb.classList.add('glow'); // 1-2: hint the right one
       const w=wrong();if(await w&&AUD===w.g)label&&label()};
@@ -378,14 +418,14 @@ const STEPS={
  listen(stage,{s,peers}){
   stage.append(prompt('聽一聽，是哪一個注音？'));
   const sp=speakerBtn(()=>saySym(s));stage.append(sp);
-  stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>correct(),{label:()=>laterSay(400,()=>saySym(s))}));
+  stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>correct(),{symbols:[s],label:()=>laterSay(400,()=>saySym(s))}));
   voiceSeq(['聽一聽，是哪一個注音？',()=>sp.play()]);
  },
  picture(stage,{s,peers}){
   stage.append(prompt(`「${wordText(s)}」少了哪一個注音？`,'happy',[()=>speak(wordText(s),{rate:1}),'少了哪一個注音？']));
   const ex=h(`<button class="example" aria-label="聽例詞"><span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{blank:s})}</button>`);
   ex.onclick=tap(()=>speak(wordText(s)));stage.append(ex);
-  stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>{ex.innerHTML=`<span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{hl:s})}`;correct()}));
+  stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>{ex.innerHTML=`<span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{hl:s})}`;correct()},{symbols:[s]}));
   voiceSeq([()=>speak(wordText(s),{rate:1}),'少了哪一個注音？']);
  },
  trace(stage,{s}){
@@ -418,9 +458,12 @@ const STEPS={
   ok.onclick=()=>{if(passed)return;
     if(!strokes.length){setHint('先用手指沿著藍色的字畫畫看');sayTap(['先用手指沿著藍色的字畫畫看']);return}
     const {cov,prec}=traceScore(s,strokes,W,lw());
-    if(cov>=.45&&prec>=.5){passed=true;redraw();setHint('');correct(cov>.75?'寫得好漂亮！':'寫得很好！')}
-    else if(++fails>=2){passed=true;redraw();setHint('');correct('很努力喔！我們繼續！')}
-    else{wrong({count:false});setHint(cov<.45?'還有一些地方沒有寫到，再試一次！':'要沿著藍色的字寫喔，再試一次！');setTimeout(()=>{strokes=[];redraw()},700)}
+    if(cov>=.45&&prec>=.5){recordPractice([s],true);passed=true;redraw();setHint('');correct(cov>.75?'寫得好漂亮！':'寫得很好！')}
+    else{
+      recordPractice([s],false);
+      if(++fails>=2){passed=true;redraw();setHint('');correct('很努力喔！我們繼續！')}
+      else{wrong({count:false});setHint(cov<.45?'還有一些地方沒有寫到，再試一次！':'要沿著藍色的字寫喔，再試一次！');setTimeout(()=>{strokes=[];redraw()},700)}
+    }
   };
   requestAnimationFrame(setup);
   voiceSeq(['沿著藍色的字，寫寫看',()=>saySym(s)]);
@@ -438,10 +481,10 @@ const STEPS={
     const b=h(`<button class="bub" style="left:${cx}%;top:${cy}%;--d:${(2+Math.random()*2).toFixed(2)}s;--dx:${(Math.random()*20-10)|0}px;--dy:${(Math.random()*20-10)|0}px">${it}</button>`);
     b.onclick=()=>{if(got>=need||b.classList.contains('pop'))return;
       if(it===s){sfx.pop();b.classList.add('pop');got++;tg.querySelector('.count').textContent=`${got} / ${need}`;
-        if(got===need){pond.classList.add('done');later(300,()=>correct('全部找到了！'))}}
+        if(got===need){recordPractice([s],true);pond.classList.add('done');later(300,()=>correct('全部找到了！'))}}
       else{b.classList.remove('no');void b.offsetWidth;b.classList.add('no');
         if(++miss>=2)pond.querySelectorAll('.bub').forEach(x=>{if(x.textContent===s&&!x.classList.contains('pop'))x.classList.add('glow')});
-        const w=wrong();w.then(ok=>{if(ok&&AUD===w.g)laterSay(300,()=>saySym(s))})}};
+        recordPractice([s],false);const w=wrong();w.then(ok=>{if(ok&&AUD===w.g)laterSay(300,()=>saySym(s))})}};
     pond.appendChild(b)});
   voiceSeq(['把所有的這個注音戳破！',()=>saySym(s)]);
  },
@@ -466,7 +509,7 @@ const STEPS={
   stage.append(prompt('聽一聽，是哪一個拼音？'));
   const sp=speakerBtn(()=>speak(ch,{rate:.7}));stage.append(sp);
   const others=shuffle(set.filter(x=>x[2]!==ch&&x[0]+x[1]!==a+b)).slice(0,2).map(x=>x[0]+x[1]);
-  stage.append(optionRow([a+b,...others],a+b,()=>{correct(`對！${a}${b}，${ch}`,['對！',()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{wide:true,label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
+  stage.append(optionRow([a+b,...others],a+b,()=>{correct(`對！${a}${b}，${ch}`,['對！',()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{symbols:simpleSymbols(a+b),wide:true,label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
   voiceSeq(['聽一聽，是哪一個拼音？',()=>sp.play()]);
  },
  blendBuild(stage,{it:[a,b,ch]}){
@@ -475,7 +518,7 @@ const STEPS={
   stage.append(bl);
   const sp=speakerBtn(()=>speak(ch,{rate:.7}),true);stage.append(sp);
   const opts=[a,...distractors(a,2,['ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄍ','ㄎ','ㄏ','ㄓ'])];
-  stage.append(optionRow(opts,a,async()=>{bl.querySelector('.a').textContent=a;correct(`${a}${b}，${ch}`,[()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
+  stage.append(optionRow(opts,a,async()=>{bl.querySelector('.a').textContent=a;correct(`${a}${b}，${ch}`,[()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{symbols:simpleSymbols(a),label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
   voiceSeq([()=>speak(ch,{rate:.7}),'前面要放哪一個注音？']);
  },
  toneDemo(stage,{set}){
@@ -494,7 +537,7 @@ const STEPS={
   const sp=speakerBtn(()=>speak(ch,{rate:.7}));stage.append(sp);
   const base=set[0][1];
   stage.append(optionRow([0,1,2,3],k,()=>correct(`對！「${ch}」是${TONE_NAME[k]}`),
-    {wide:true,render:i=>`<span>${zc(base+TONES[i]).replace('class="zc"','class="zc" style="font-size:1.7rem"')}<span class="lab">${TONE_NAME[i]}</span></span>`,
+    {symbols:simpleSymbols(zy),wide:true,render:i=>`<span>${zc(base+TONES[i]).replace('class="zc"','class="zc" style="font-size:1.7rem"')}<span class="lab">${TONE_NAME[i]}</span></span>`,
      label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
   voiceSeq(['聽一聽，是第幾聲？',()=>sp.play()]);
  },
@@ -538,10 +581,10 @@ function confetti(){
 function lessonName(L){const u=UNITS[L.ui];
   return L.type==='sym'?`認識 ${L.s}`:L.type==='review'?`複習・${u.name}`:L.type==='blend'?`拼音 ${u.lessons.indexOf(L.id)+1}`:`聲調 ${u.lessons.indexOf(L.id)+1}`}
 function recordHTML(){
-  const rows=Object.entries(P.acc).sort((a,b)=>b[1].t-a[1].t).slice(0,5);
+  const rows=Object.entries(P.acc).filter(([key])=>LESSON_BY_KEY.has(key)).sort((a,b)=>b[1].t-a[1].t).slice(0,5);
   if(!rows.length)return '<div class="set"><span>最近的課<small>還沒有紀錄</small></span></div>';
   return `<div class="set rec"><span>最近的課<small>每課都給 3 顆星；這裡記錄答錯幾次</small></span></div><ul class="rec-list">${
-    rows.map(([id,r])=>`<li><span>${lessonName(LESSONS[id])}</span><b>${r.m?`答錯 ${r.m} 次`:'全對'}</b></li>`).join('')}</ul>`}
+    rows.map(([key,r])=>`<li><span>${lessonName(LESSON_BY_KEY.get(key))}</span><b>${r.m?`答錯 ${r.m} 次`:'全對'}</b></li>`).join('')}</ul>`}
 /* 1-7: a sum a 4-year-old cannot do keeps settings for grown-ups */
 function parentGate(then){
   const a=11+(Math.random()*8|0),b=3+(Math.random()*6|0),ans=a+b;
@@ -571,7 +614,7 @@ function openSettings(){
   sh.querySelector('#ul').onclick=()=>{S.unlockAll=!S.unlockAll;save();sync()};
   const rst=sh.querySelector('#rst');
   rst.onclick=()=>{if(!armed){armed=true;rst.textContent='再按一次確定';rst.style.color='var(--coral-d)';return}
-    P={stars:{},acc:{}};save();rst.textContent='已清除';renderPath.scrolled=0};
+    P=emptyProgress();save();rst.textContent='已清除';renderPath.scrolled=0};
   const close=()=>{sh.remove();render()};
   sh.querySelector('#cls').onclick=close;sh.onclick=e=>{if(e.target===sh)close()};
   sync();document.body.appendChild(sh);

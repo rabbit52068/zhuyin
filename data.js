@@ -66,7 +66,7 @@ const PRAISE=['好棒！','太厲害了！','答對了！','你好聰明！','�
 const LESSONS=[];
 UNITS.forEach((u,ui)=>{u.lessons=[];
   const add=l=>{l.id=LESSONS.length;l.ui=ui;LESSONS.push(l);u.lessons.push(l.id)};
-  if(u.kind==='sym'){[...u.sy].forEach(s=>add({type:'sym',s}));add({type:'review'})}
-  else u.sets.forEach((set,i)=>add({type:u.kind,set}));
+  if(u.kind==='sym'){[...u.sy].forEach(s=>add({key:'sym:'+s,type:'sym',s}));add({key:'review:'+u.name,type:'review'})}
+  else u.sets.forEach((set,i)=>add({key:`${u.kind}:${u.name}:${i}`,type:u.kind,set}));
 });
 
