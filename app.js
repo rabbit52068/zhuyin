@@ -243,6 +243,9 @@ function startLesson(id){
 let STEP=0;
 const live=t=>!!LS&&t===STEP;
 function later(ms,fn){const t=STEP;setTimeout(()=>{if(live(t))fn()},ms)}
+/* delayed speech: skipped if the step changed or any newer speech started meanwhile (a tap wins);
+   fn gets the new audio generation for sayAll */
+function laterSay(ms,fn){const t=STEP,g=AUD;setTimeout(()=>{if(live(t)&&g===AUD)fn(++AUD)},ms)}
 function stopVoice(){STEP++;hush()}
 function askQuit(){
   if(!LS||LS.layer.querySelector('.ask'))return;
@@ -257,7 +260,7 @@ function askQuit(){
   stay.onclick=()=>ask.remove();
   ask.querySelector('#askLeave').onclick=quitLesson;
   ask.onkeydown=e=>{if(e.key==='Escape')ask.remove()};
-  speak('要離開嗎',{rate:1});
+  hush();speak('要離開嗎',{rate:1});
 }
 function quitLesson(){stopVoice();LS.layer.remove();LS=null;document.body.style.overflow='';render()}
 function setProg(){LS.layer.querySelector('.prog i').style.width=(LS.i/LS.steps.length*100)+'%'}
@@ -280,18 +283,20 @@ async function correct(text,say){
   LS.layer.querySelector('#fbTxt').textContent=p;
   const fb=LS.layer.querySelector('#fb');fb.inert=false;fb.classList.add('show');LS.fbAt=Date.now();
   LS.layer.querySelector('#fbGo').focus({preventScroll:true});
-  later(350,()=>sayAll(say,STEP,++AUD));
+  laterSay(350,g=>sayAll(say,STEP,g));
 }
 const ENCOURAGE=['再想想看！','沒關係，再試一次！','慢慢來，你可以的！'];
+const quiet=()=>AUD===wrong.g;
 function catMood(mood){const c=LS&&LS.layer.querySelector('#stage .prompt svg');if(c)c.outerHTML=catSVG(mood)}
 /* A miss: thinking face and a kind line. count=false for tracing, which never costs a mistake (1-5).
-   Resolves true if the step is still on screen, so callers can replay the sound after the line. */
+   Resolves true if the step is still on screen (gameplay). Callers replay a sound only if quiet() is
+   still true afterwards, i.e. the child did not start other speech meanwhile. */
 function wrong({count=true}={}){
   if(count)LS.mistakes++;
   sfx.no();catMood('think');
-  const t=STEP;
+  const t=STEP,g=++AUD;wrong.g=g;
   return new Promise(r=>setTimeout(async()=>{
-    if(live(t)){AUD++;await speak(pick(ENCOURAGE).replace(/！/g,''),{rate:1})}
+    if(live(t)&&g===AUD)await speak(pick(ENCOURAGE).replace(/！/g,''),{rate:1});
     if(live(t))catMood('happy');
     r(live(t));
   },250));
@@ -324,7 +329,7 @@ function finish(){
   readable(col.querySelector('.result h2'),[title]);readable(col.querySelector('.result p'),more);
   const done=col.querySelector('#doneBtn');done.onclick=quitLesson;done.focus({preventScroll:true});
   sfx.win(); confetti();
-  later(400,()=>sayAll([title,...more],STEP,++AUD));
+  laterSay(400,g=>sayAll([title,...more],STEP,g));
 }
 
 /* ---------- step renderers ---------- */
@@ -346,7 +351,7 @@ function optionRow(items,target,onRight,{wide=false,label=null,render=null}={}){
       b.classList.remove('no');void b.offsetWidth;b.classList.add('no');miss++;
       if(miss>=2){win(tb);const ok=await wrong();if(ok){LS.demo=true;onRight&&onRight()}return} // 1-3: show the answer, move on
       tb.classList.add('glow'); // 1-2: hint the right one
-      if(await wrong())label&&label()};
+      if(await wrong()&&quiet())label&&label()};
     row.appendChild(b)});
   return row;
 }
@@ -368,7 +373,7 @@ const STEPS={
  listen(stage,{s,peers}){
   stage.append(prompt('聽一聽，是哪一個注音？'));
   const sp=speakerBtn(()=>saySym(s));stage.append(sp);
-  stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>correct(),{label:()=>later(400,()=>saySym(s))}));
+  stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>correct(),{label:()=>laterSay(400,()=>saySym(s))}));
   voiceSeq(['聽一聽，是哪一個注音？',()=>sp.play()]);
  },
  picture(stage,{s,peers}){
@@ -431,7 +436,7 @@ const STEPS={
         if(got===need){pond.classList.add('done');later(300,()=>correct('全部找到了！'))}}
       else{b.classList.remove('no');void b.offsetWidth;b.classList.add('no');
         if(++miss>=2)pond.querySelectorAll('.bub').forEach(x=>{if(x.textContent===s&&!x.classList.contains('pop'))x.classList.add('glow')});
-        wrong().then(ok=>{if(ok)later(300,()=>saySym(s))})}};
+        wrong().then(ok=>{if(ok&&quiet())laterSay(300,()=>saySym(s))})}};
     pond.appendChild(b)});
   voiceSeq(['把所有的這個注音戳破！',()=>saySym(s)]);
  },
@@ -456,7 +461,7 @@ const STEPS={
   stage.append(prompt('聽一聽，是哪一個拼音？'));
   const sp=speakerBtn(()=>speak(ch,{rate:.7}));stage.append(sp);
   const others=shuffle(set.filter(x=>x[2]!==ch&&x[0]+x[1]!==a+b)).slice(0,2).map(x=>x[0]+x[1]);
-  stage.append(optionRow([a+b,...others],a+b,()=>{correct(`對！${a}${b}，${ch}`,['對！',()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{wide:true,label:()=>later(400,()=>speak(ch,{rate:.7}))}));
+  stage.append(optionRow([a+b,...others],a+b,()=>{correct(`對！${a}${b}，${ch}`,['對！',()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{wide:true,label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
   voiceSeq(['聽一聽，是哪一個拼音？',()=>sp.play()]);
  },
  blendBuild(stage,{it:[a,b,ch]}){
@@ -465,7 +470,7 @@ const STEPS={
   stage.append(bl);
   const sp=speakerBtn(()=>speak(ch,{rate:.7}),true);stage.append(sp);
   const opts=[a,...distractors(a,2,['ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄍ','ㄎ','ㄏ','ㄓ'])];
-  stage.append(optionRow(opts,a,async()=>{bl.querySelector('.a').textContent=a;correct(`${a}${b}，${ch}`,[()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{label:()=>later(400,()=>speak(ch,{rate:.7}))}));
+  stage.append(optionRow(opts,a,async()=>{bl.querySelector('.a').textContent=a;correct(`${a}${b}，${ch}`,[()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
   voiceSeq([()=>speak(ch,{rate:.7}),'前面要放哪一個注音？']);
  },
  toneDemo(stage,{set}){
@@ -485,7 +490,7 @@ const STEPS={
   const base=set[0][1];
   stage.append(optionRow([0,1,2,3],k,()=>correct(`對！「${ch}」是${TONE_NAME[k]}`),
     {wide:true,render:i=>`<span>${zc(base+TONES[i]).replace('class="zc"','class="zc" style="font-size:1.7rem"')}<span class="lab">${TONE_NAME[i]}</span></span>`,
-     label:()=>later(400,()=>speak(ch,{rate:.7}))}));
+     label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
   voiceSeq(['聽一聽，是第幾聲？',()=>sp.play()]);
  },
 };

@@ -80,6 +80,22 @@ const KEYS = new Set(lines().map(l => l.key));
     await new Promise(r => setTimeout(r, 30)); document.querySelector('#tabChart').click();
     await new Promise(r => setTimeout(r, 900)); return window.__played.slice() });
   ok('R1#2 switching tabs stops the map greeting', tabs.length === 1, JSON.stringify(tabs));
+  // Codex R2: delayed speech never overrides a newer tap
+  const miss = await pg.evaluate(async () => { const sl = ms => new Promise(r => setTimeout(r, ms));
+    if (LS) quitLesson(); startLesson(0); await sl(200); LS.i = LS.steps.findIndex(s => s.t === 'listen'); showStep(); await sl(2500);
+    const s = LS.steps[LS.i].s; window.__played = [];
+    [...document.querySelectorAll('#stage .opt')].find(o => o.textContent.trim() !== s).click();   // first miss
+    await sl(400); document.querySelector('#stage .prompt span').click();                           // tap during encouragement
+    await sl(2000); return window.__played.slice() });
+  ok('R2 no sound replay after a tap during encouragement', miss.length === 2 && !miss.includes('sym/01.mp3'), JSON.stringify(miss));
+  const res = await pg.evaluate(async () => { const sl = ms => new Promise(r => setTimeout(r, ms));
+    if (LS) quitLesson(); startLesson(0); await sl(200); window.__played = []; finish();
+    document.querySelector('.result p').click(); await sl(2500); return window.__played.slice() });
+  ok('R2 result tap is not cut off by result auto-play', res.length === 2 && res[1] === 'sym/01.mp3', JSON.stringify(res));
+  const quit = await pg.evaluate(async () => { const sl = ms => new Promise(r => setTimeout(r, ms));
+    quitLesson(); startLesson(0); await sl(350); window.__played = []; askQuit(); await sl(1500); return window.__played.slice() });
+  ok('R2 quit question stops the automatic prompt', quit.length === 1, JSON.stringify(quit));
+  await pg.evaluate(() => { if (LS) quitLesson() });
   ok('no page errors', errs.length === 0, errs.join(' | '));
   await b.close();
 })();
