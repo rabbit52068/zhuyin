@@ -14,7 +14,14 @@ Date: 2026-11-21. These answer the three open items at the end of `ROADMAP.md` (
 
 ## 2. Voice (roadmap 7-1 and the "錄音" external task)
 
-**Status 2026-11-21: paused by the owner. The game keeps Web Speech for now. Resume later from the notes below.**
+**Decision (2026-11-22, replaces the decisions below):**
+
+- **Symbol sounds (37 clips): Mandarin Daily News (國語日報) recordings.** No TTS model said the bare symbols correctly. The owner judged stand-in characters (玻 for ㄅ) and bare-symbol input wrong for every model tried. The recordings are "all rights reserved", so they stay out of this repo (`audio/sym/` is git-ignored) until written permission arrives. Until then the public game reads symbols with Web Speech.
+- **Every other line: Microsoft Edge neural voices, pre-rendered.** Sentences use 曉臻 (zh-TW-HsiaoChenNeural). Single characters and words use 曉雨 (zh-TW-HsiaoYuNeural). The owner chose this in a blind A/B test: both voices got all 12 tone tests right (八拔把爸, 媽麻馬罵, 衣姨椅億), the owner preferred 曉雨 on 6 of 8 tone items and 曉臻 on all 6 sentences.
+- Tone test results by ear (same character read four times, one clip per tone): Edge 曉臻 and 曉雨 4/4; BreezyVoice 1/4 to 3/4 depending on the take; Chatterbox 2/4; Meijia was not graded. BlueMagpie-TTS could not say bare symbols and its license forbids redistributing output.
+- How it works: `tools/voice-lines.js` lists every line the game can say and writes `clips.js` (line key to file). `speak()` plays the clip when one exists and falls back to Web Speech otherwise. `tests/voice.js` fails if the game says a line that is not in the list.
+
+Older notes (2026-11-21), kept for the record:
 
 Open findings when paused:
 - The owner wants a Taiwan accent, higher and more cheerful. A cloned Chatterbox voice (`exaggeration` 0.6) was liked but sounds mainland, because Chatterbox learned Chinese mostly from mainland speech and the reference clip was English.

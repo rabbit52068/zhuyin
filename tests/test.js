@@ -4,7 +4,8 @@ const file='file://'+process.argv[2];
 (async()=>{
   const b=await chromium.launch(); const pg=await b.newPage({viewport:{width:390,height:844},deviceScaleFactor:2});
   const errs=[]; pg.on('pageerror',e=>errs.push(String(e))); pg.on('console',m=>{if(m.type()==='error')errs.push(m.text())});
-  await pg.addInitScript(()=>{window.__said=[];const mock={speaking:false,getVoices:()=>[],cancel(){window.__said.push({cancel:1,t:performance.now()})},
+  await pg.addInitScript(()=>{window.Audio=undefined; // these tests check speech synthesis, so turn recorded clips off (tests/voice.js covers clips)
+    window.__said=[];const mock={speaking:false,getVoices:()=>[],cancel(){window.__said.push({cancel:1,t:performance.now()})},
     speak(u){window.__said.push({text:u.text,t:performance.now()});setTimeout(()=>u.onend&&u.onend(),250)},onvoiceschanged:null};
     Object.defineProperty(window,'speechSynthesis',{value:mock,configurable:true});try{localStorage.clear()}catch(e){}});
   await pg.goto(file); await pg.waitForTimeout(800);
