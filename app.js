@@ -63,7 +63,42 @@ function pickVoice(){
   hasZh=!!voice;
 }
 if('speechSynthesis' in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice}
-function speak(text,{rate}={}){
+/* Recorded clips (7-1). clips.js maps a line key to a file in audio/. A line with no clip, or a clip
+   that fails to play, falls back to speech synthesis, so the game works with zero clips. */
+const CLIP_MAP=typeof CLIPS==='object'&&CLIPS?CLIPS:{};
+const HAS_CLIPS=Object.keys(CLIP_MAP).length>0;
+const clipKey=t=>String(t).replace(/[！？，。、「」：\s!?,.:]/g,'');
+const AU=HAS_CLIPS&&typeof Audio==='function'?new Audio():null;
+let auFin=null; // ends the clip that is playing now
+function stopClip(){if(auFin)auFin(true);if(AU){try{AU.pause()}catch(e){}}}
+/* iOS plays audio from a timer only if the same element first played during a tap */
+if(AU){const unlock=()=>{removeEventListener('pointerdown',unlock,true);
+  const n=400,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,s)=>[...s].forEach((c,i)=>b[o+i]=c.charCodeAt(0));
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);
+  v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  if(!auFin){AU.src=URL.createObjectURL(new Blob([b],{type:'audio/wav'}));AU.play().catch(()=>{})}};
+  addEventListener('pointerdown',unlock,true)}
+/* Clips play at natural speed; only the parent's "slow" setting slows them. rate 1 marks a prompt line. */
+function playClip(file,rate){
+  return new Promise(res=>{
+    stopClip();
+    let done=false;const fin=ok=>{if(done)return;done=true;if(auFin===fin)auFin=null;AU.onended=AU.onerror=null;res(ok)};
+    auFin=fin;
+    AU.onended=()=>fin(true);AU.onerror=()=>fin(false);
+    AU.src='audio/'+file;AU.preservesPitch=true;AU.playbackRate=(rate!==1&&S.rate<.7)?.8:1;
+    setTimeout(()=>fin(true),10000);
+    AU.play().catch(()=>fin(false));
+  });
+}
+/* key: clip lookup key (default: the text without punctuation). Symbol sounds use 'sym:ㄅ'. */
+async function speak(text,{rate,key}={}){
+  key=key||clipKey(text);
+  if(window.__keys)window.__keys.push(key); // test hook: which lines the game asks for
+  const f=CLIP_MAP[key];
+  if(f&&AU){try{speechSynthesis.cancel()}catch(e){}if(await playClip(f,rate))return}
+  stopClip();return tts(text,{rate});
+}
+function tts(text,{rate}={}){
   return new Promise(res=>{
     if(!('speechSynthesis' in window)) return res();
     try{
@@ -77,7 +112,7 @@ function speak(text,{rate}={}){
     }catch(e){res()}
   });
 }
-const saySym=s=>speak(SYM[s].say,{rate:Math.min(S.rate,.75)});
+const saySym=s=>speak(SYM[s].say,{rate:Math.min(S.rate,.75),key:'sym:'+s});
 let AC=null;
 function tone(seq){
   try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
@@ -188,7 +223,7 @@ function startLesson(id){
 let STEP=0;
 const live=t=>!!LS&&t===STEP;
 function later(ms,fn){const t=STEP;setTimeout(()=>{if(live(t))fn()},ms)}
-function stopVoice(){STEP++;try{speechSynthesis.cancel()}catch(e){}}
+function stopVoice(){STEP++;stopClip();try{speechSynthesis.cancel()}catch(e){}}
 function askQuit(){
   if(!LS||LS.layer.querySelector('.ask'))return;
   if(LS.done)return quitLesson();
@@ -214,14 +249,18 @@ function showStep(){
   stage.setAttribute('tabindex','-1');stage.focus({preventScroll:true});
   STEPS[st.t](stage,st);
 }
-async function correct(text){
+/* say: what to speak, as voiceSeq items (default: the text). Split lines reuse clips for symbols and characters. */
+async function correct(text,say){
   /* LS.demo: the game showed the answer after two misses (1-3), so no win sound and a calmer line */
   if(!LS.demo) sfx.ok();
-  const p=LS.demo?'答案在這裡！'+(text?text.replace(/^對！/,''):'下次一定可以！'):(text||pick(PRAISE));
+  if(!text&&!LS.demo)text=pick(PRAISE);
+  say=say||[text||'下次一定可以！'];
+  if(LS.demo)say=['答案在這裡！',...say.filter(x=>x!=='對！').map(x=>typeof x==='string'?x.replace(/^對！/,''):x)];
+  const p=LS.demo?'答案在這裡！'+(text?text.replace(/^對！/,''):'下次一定可以！'):text;
   LS.layer.querySelector('#fbTxt').textContent=p;
   const fb=LS.layer.querySelector('#fb');fb.inert=false;fb.classList.add('show');LS.fbAt=Date.now();
   LS.layer.querySelector('#fbGo').focus({preventScroll:true});
-  later(350,()=>speak(p.replace('！',''),{rate:1}));
+  later(350,()=>sayAll(say,STEP));
 }
 const ENCOURAGE=['再想想看！','沒關係，再試一次！','慢慢來，你可以的！'];
 function catMood(mood){const c=LS&&LS.layer.querySelector('#stage .prompt svg');if(c)c.outerHTML=catSVG(mood)}
@@ -238,8 +277,9 @@ function wrong({count=true}={}){
   },250));
 }
 /* Read the question aloud, then play its sounds, one after another (1-1). Strings are spoken; functions return a promise. */
-function voiceSeq(items){const t=STEP;(async()=>{await wait(300);
-  for(const it of items){if(!live(t))return;await (typeof it==='string'?speak(it,{rate:1}):it());if(!live(t))return;await wait(200)}})()}
+async function sayAll(items,t){
+  for(const it of items){if(!live(t))return;await (typeof it==='string'?speak(it,{rate:1}):it());if(!live(t))return;await wait(200)}}
+function voiceSeq(items){const t=STEP;(async()=>{await wait(300);await sayAll(items,t)})()}
 function next(){
   if(!LS||LS.done)return;
   LS.i++;
@@ -298,7 +338,7 @@ const STEPS={
   stage.append(ex);
   stage.append(h(`<p class="hint">「${s}」就在「${wordText(s)}」裡面，紅色的就是它</p>`));
   const go=h(`<button class="btn go">我記住了</button>`);go.onclick=next;stage.append(go);
-  voiceSeq(['這是新朋友！',()=>sp.play(),`${SYM[s].say}，${wordText(s)}的${SYM[s].say}`]);
+  voiceSeq(['這是新朋友！',()=>sp.play(),`${wordText(s)}的`,()=>saySym(s)]);
  },
  listen(stage,{s,peers}){
   stage.append(prompt('聽一聽，是哪一個注音？'));
@@ -311,7 +351,7 @@ const STEPS={
   const ex=h(`<button class="example" aria-label="聽例詞"><span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{blank:s})}</button>`);
   ex.onclick=()=>speak(wordText(s));stage.append(ex);
   stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>{ex.innerHTML=`<span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{hl:s})}`;correct()}));
-  voiceSeq([`${wordText(s)}，少了哪一個注音？`]);
+  voiceSeq([()=>speak(wordText(s),{rate:1}),'少了哪一個注音？']);
  },
  trace(stage,{s}){
   stage.append(prompt(`沿著藍色的字，寫寫看「${s}」`,'happy'));
@@ -390,7 +430,7 @@ const STEPS={
   stage.append(prompt('聽一聽，是哪一個拼音？'));
   const sp=speakerBtn(()=>speak(ch,{rate:.7}));stage.append(sp);
   const others=shuffle(set.filter(x=>x[2]!==ch&&x[0]+x[1]!==a+b)).slice(0,2).map(x=>x[0]+x[1]);
-  stage.append(optionRow([a+b,...others],a+b,()=>{correct(`對！${a}${b}，${ch}`)},{wide:true,label:()=>later(400,()=>speak(ch,{rate:.7}))}));
+  stage.append(optionRow([a+b,...others],a+b,()=>{correct(`對！${a}${b}，${ch}`,['對！',()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{wide:true,label:()=>later(400,()=>speak(ch,{rate:.7}))}));
   voiceSeq(['聽一聽，是哪一個拼音？',()=>sp.play()]);
  },
  blendBuild(stage,{it:[a,b,ch]}){
@@ -399,8 +439,8 @@ const STEPS={
   stage.append(bl);
   const sp=speakerBtn(()=>speak(ch,{rate:.7}),true);stage.append(sp);
   const opts=[a,...distractors(a,2,['ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄍ','ㄎ','ㄏ','ㄓ'])];
-  stage.append(optionRow(opts,a,async()=>{bl.querySelector('.a').textContent=a;correct(`${a}${b}，${ch}`)},{label:()=>later(400,()=>speak(ch,{rate:.7}))}));
-  voiceSeq([`${ch}，前面要放哪一個注音？`]);
+  stage.append(optionRow(opts,a,async()=>{bl.querySelector('.a').textContent=a;correct(`${a}${b}，${ch}`,[()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{label:()=>later(400,()=>speak(ch,{rate:.7}))}));
+  voiceSeq([()=>speak(ch,{rate:.7}),'前面要放哪一個注音？']);
  },
  toneDemo(stage,{set}){
   stage.append(prompt('同一個拼音，有四種唱法，點點看！','happy'));

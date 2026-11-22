@@ -3,7 +3,8 @@ const OUT=require('path').join(__dirname,'out/');require('fs').mkdirSync(OUT,{re
 (async()=>{
   const b=await chromium.launch(); const pg=await b.newPage({viewport:{width:390,height:844},deviceScaleFactor:2});
   const errs=[]; pg.on('pageerror',e=>errs.push(String(e)));
-  await pg.addInitScript(()=>{window.__said=[];Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[],cancel(){},
+  await pg.addInitScript(()=>{window.Audio=undefined; // these tests check speech synthesis, so turn recorded clips off (tests/voice.js covers clips)
+    window.__said=[];Object.defineProperty(window,'speechSynthesis',{value:{getVoices:()=>[],cancel(){},
     speak(u){window.__said.push(u.text);setTimeout(()=>u.onend&&u.onend(),120)}},configurable:true});try{localStorage.clear()}catch(e){}});
   await pg.goto('file://'+process.argv[2]); await pg.waitForTimeout(600);
   const ok=(name,cond,extra='')=>console.log((cond?'PASS ':'FAIL ')+name+(extra?'  '+extra:''));
