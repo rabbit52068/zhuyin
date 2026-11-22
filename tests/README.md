@@ -5,8 +5,9 @@
 | File | Checks |
 |---|---|
 | `data.js` | All 37 example words and symbol units, curriculum/audio order, symmetric confusable pairs and distractor priority, tone/blend sets, clip files |
-| `progress.js` | Fresh v2 saves, historical v1 index migration, renamed review-key migration, completion/unlocks after unit reordering, chart order, symbol attempts, corrupt JSON recovery |
+| `progress.js` | Fresh v2 saves, historical/key migration, completion/unlocks, chart order, symbol attempts, corrupt storage, export/clear/import round trips and invalid-import protection |
 | `a11y.js` | Lesson/star labels, modal focus traps and return, Escape, tab semantics/arrows, native play-button keyboard handling, intro fit at 390×667/740 and unchanged tall-screen layout |
+| `report.js` | Parent report counts/rate ranking, practice date, empty state, live reset, gate protection and modal focus/Escape |
 | `test.js` | Stage 0: document head, start tip, speaker button, old speech after a step change, Enter spam, `finish()` twice |
 | `bub.js` | Stage 0: extra taps after all bubbles are found |
 | `voice.js` | 7-1: every spoken line is listed in `tools/voice-lines.js`, clips play, missing clips fall back to speech synthesis |
@@ -30,6 +31,7 @@ node tests/voice.js "$PWD/index.html"
 node tests/trace.js "$PWD/index.html"
 node tests/progress.js "$PWD/index.html"
 node tests/a11y.js "$PWD/index.html"
+node tests/report.js "$PWD/index.html"
 ```
 
 Screenshots go to `tests/out/`.
@@ -38,7 +40,7 @@ Screenshots go to `tests/out/`.
 
 `traceScore` creates a canvas and reads its pixels, so `trace.js` uses Chromium's real canvas. It replaces `drawGlyph` only inside the test with a fixed horizontal mask, then restores it. The three stroke fixtures test coverage, precision, and coordinate scaling without relying on installed fonts or downloading web fonts.
 
-GitHub Actions runs all eight scripts on pushes to `main` and pull requests, using Ubuntu and Node 20. Only CI installs Playwright and Chromium (`npm install --no-save playwright` and `npx playwright install --with-deps chromium`). The workflow fails on a nonzero script exit or any output line beginning with `FAIL`, including scripts that exit successfully after logging a failure. The older Stage 0 scripts also print informational lines; these are kept in the job log.
+GitHub Actions runs all nine scripts on pushes to `main` and pull requests, using Ubuntu and Node 20. Only CI installs Playwright and Chromium (`npm install --no-save playwright` and `npx playwright install --with-deps chromium`). The workflow fails on a nonzero script exit or any output line beginning with `FAIL`, including scripts that exit successfully after logging a failure. The older Stage 0 scripts also print informational lines; these are kept in the job log.
 
 Dialogs isolate the background with `inert` and trap focus in the top dialog. Escape closes the parent gate, settings, or exit question and restores its opener. Escape within a lesson opens its existing exit confirmation; leaving restores the lesson node by its stable key after the map rebuilds. Tabs share `#main` as their labelled panel, with one tab stop and ArrowLeft/ArrowRight/Home/End navigation. Sentence text remains plain text: document-level pointer/click delegation supports tapping it, while only its native `.say` button is a keyboard control. Its decorative SVG is hidden from assistive technology, and button clicks do not bubble into a second reading.
 
@@ -49,3 +51,7 @@ Progress uses `zy-progress = {v:2, stars, acc, sym}`. Stars and lesson records u
 The map follows `UNITS`: consonants → medials → finals → blend/tone lessons. The chart uses the same order for its three symbol groups. `SYM`/`ORDER` retain their original audio numbering. Distractors select confusable partners first, then learned symbols, then the hint pool, then other symbols, shuffling within each tier. The blend missing-consonant step additionally restricts eligible choices to consonants. The Node data test checks partner inclusion across 500 calls, target/duplicate exclusion, and priority/filtering behavior.
 
 Symbol attempts are saved immediately. Listen/picture count the target, bubbles count each wrong tap and one successful completion, and trace counts each scored failure or successful drawing. Empty trace submissions are hints, and the assisted advance after two failures adds no correct attempt. Shown option answers after two misses also add no correct attempt. Simple blend choices count both symbols; a missing-consonant question counts only that consonant. Tone choices count a one-symbol or consonant-plus-vowel/medial base, ignoring tone marks. Demonstrations and complex/three-part bases add no attempts.
+
+Parent settings export a JSON object `{progress, settings}`. The read-only text can be copied; if the clipboard API is unavailable or denied, the text is selected for manual copying. Imports accept that backup or raw v1/v2 progress, validate its shape/counts/settings, and normalize it with `readProgress()`. A star-count preview and second tap are required before replacing data. Editing the text or changing current progress/settings invalidates the previous confirmation. Raw progress imports preserve current settings. Unknown lesson/symbol keys follow the existing migration rules; a nonempty import with no usable entries is rejected.
+
+The parent report stays inside the existing settings modal. It shows symbols with completed lessons, all completed lessons, and up to five symbols with at least three attempts and an error. Ranking is by error rate, then wrong-count, then fixed symbol order. The last-practice date uses the latest valid positive timestamp across symbol attempts and lesson records. Recent lessons appear in the report; reset/import refresh it. The report is a focusable labelled section, so it stays in the same focus trap and Escape returns to the Settings opener. No play-time tracking is added.

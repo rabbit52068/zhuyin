@@ -35,6 +35,12 @@ const EMPTY = { v: 2, stars: {}, acc: {}, sym: {} };
       process.exitCode = 1;
     } finally { if (context) await context.close() }
   }
+  async function openParentSettings(page) {
+    await page.click('#setBtn');
+    const sum = await page.locator('.gate-q').evaluate(el => el.textContent.match(/\d+/g).map(Number).reduce((a, b) => a + b, 0));
+    await page.evaluate(sum => [...document.querySelectorAll('.gate-o')].find(b => +b.textContent === sum).click(), sum);
+    await page.waitForSelector('.box[aria-label="家長設定"]');
+  }
   try {
     await scenario('progress fresh start writes empty v2', null, async page => {
       const r = await page.evaluate(() => ({ p: P, saved: JSON.parse(localStorage.getItem('zy-progress')) }));
@@ -123,6 +129,51 @@ const EMPTY = { v: 2, stars: {}, acc: {}, sym: {} };
         await page.click('#tabPath'); await page.click('.node.cur');
         assert.equal(await page.evaluate(() => LS.L.key), 'sym:ㄧ');
       });
+
+    await scenario('progress export, clear, and confirmed import restore stars, symbol history, and settings',
+      JSON.stringify({ v: 2, stars: { 'sym:ㄅ': 3, 'sym:ㄆ': 3 }, acc: { 'sym:ㄅ': { m: 2, n: 6, t: 1 } }, sym: { 'ㄅ': { ok: 4, ng: 2, t: 2 } } }), async page => {
+        await page.evaluate(() => { S = { rate: .6, unlockAll: true }; save() });
+        await openParentSettings(page); await page.click('#exportBtn');
+        assert.ok(await page.locator('#exportText').evaluate(el => el.readOnly));
+        const text = await page.locator('#exportText').inputValue(), backup = JSON.parse(text);
+        assert.equal(backup.progress.v, 2); assert.deepEqual(backup.settings, { rate: .6, unlockAll: true });
+        await page.click('#rst'); await page.click('#rst');
+        assert.deepEqual(await page.evaluate(() => P), EMPTY);
+        await page.click('#rate button[data-v="1"]'); await page.click('#ul');
+        assert.deepEqual(await page.evaluate(() => S), { rate: 1, unlockAll: false });
+        await page.click('#importBtn'); await page.fill('#importText', text); await page.click('#importApply');
+        assert.deepEqual(await page.evaluate(() => P), EMPTY, 'preview must not import');
+        assert.ok((await page.locator('#importStatus').textContent()).includes('0 顆星 → 匯入後 6 顆星'));
+        await page.click('#importApply');
+        const restored = await page.evaluate(() => ({ p: P, settings: S, saved: JSON.parse(localStorage.getItem('zy-progress')) }));
+        assert.deepEqual(restored.p, backup.progress); assert.deepEqual(restored.saved, backup.progress);
+        assert.deepEqual(restored.settings, backup.settings);
+        await page.click('#cls'); assert.equal(await page.locator('.node-wrap .stars').count(), 2);
+      });
+
+    await scenario('progress invalid imports and edits after preview change nothing',
+      JSON.stringify({ v: 2, stars: { 'sym:ㄅ': 3 }, acc: {}, sym: { 'ㄅ': { ok: 1, ng: 2, t: 3 } } }), async page => {
+        await openParentSettings(page); await page.click('#importBtn');
+        const before = await page.evaluate(() => ({ p: P, settings: S, stored: localStorage.getItem('zy-progress') }));
+        for (const text of ['garbage', '{}', '[]', '{"v":99,"stars":{}}', '{"v":2,"stars":{"sym:ㄅ":"3"}}', '{"stars":{"unknown":3}}']) {
+          await page.fill('#importText', text); await page.click('#importApply'); await page.click('#importApply');
+          assert.deepEqual(await page.evaluate(() => ({ p: P, settings: S, stored: localStorage.getItem('zy-progress') })), before);
+          assert.ok((await page.locator('#importStatus').textContent()).length > 0);
+        }
+        await page.fill('#importText', JSON.stringify(EMPTY)); await page.click('#importApply');
+        await page.fill('#importText', 'garbage'); await page.click('#importApply');
+        assert.deepEqual(await page.evaluate(() => ({ p: P, settings: S, stored: localStorage.getItem('zy-progress') })), before);
+      });
+
+    await scenario('progress imports a raw v1 save while preserving current settings', null, async page => {
+      await openParentSettings(page); await page.click('#importBtn');
+      const settings = await page.evaluate(() => S);
+      await page.fill('#importText', JSON.stringify({ stars: { 27: 3, 46: 3 }, acc: { 46: { m: 1, n: 7, t: 10 } } }));
+      await page.click('#importApply'); await page.click('#importApply');
+      assert.deepEqual(await page.evaluate(() => P), { v: 2, stars: { 'sym:ㄚ': 3, 'review:介音': 3 },
+        acc: { 'review:介音': { m: 1, n: 7, t: 10 } }, sym: {} });
+      assert.deepEqual(await page.evaluate(() => S), settings);
+    });
 
     await scenario('progress corrupt JSON recovers to empty v2 without crashing', '{broken', async page => {
       const r = await page.evaluate(() => ({ p: P, saved: JSON.parse(localStorage.getItem('zy-progress')),

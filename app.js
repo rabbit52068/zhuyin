@@ -669,6 +669,78 @@ function recordHTML(){
   if(!rows.length)return '<div class="set"><span>最近的課<small>還沒有紀錄</small></span></div>';
   return `<div class="set rec"><span>最近的課<small>每課都給 3 顆星；這裡記錄答錯幾次</small></span></div><ul class="rec-list">${
     rows.map(([key,r])=>`<li><span>${lessonName(LESSON_BY_KEY.get(key))}</span><b>${r.m?`答錯 ${r.m} 次`:'全對'}</b></li>`).join('')}</ul>`}
+
+function progressReport(){
+  const frequent=Object.entries(P.sym).map(([s,r])=>({s,...r,rate:r.ng/(r.ok+r.ng)}))
+    .filter(r=>r.ok+r.ng>=3&&r.ng>0)
+    .sort((a,b)=>b.rate-a.rate||b.ng-a.ng||ORDER.indexOf(a.s)-ORDER.indexOf(b.s)).slice(0,5);
+  const times=[...Object.values(P.sym),...Object.values(P.acc)].map(r=>r.t)
+    .filter(t=>t>0&&!Number.isNaN(new Date(t).getTime()));
+  return{symbols:[...learned()],lessons:LESSONS.filter(l=>starsOf(l)>0).length,frequent,last:times.length?Math.max(...times):null};
+}
+function parentReportHTML(){
+  const r=progressReport(),last=r.last?`<time datetime="${new Date(r.last).toISOString()}">${new Date(r.last).toLocaleDateString('zh-TW')}</time>`:'還沒有練習紀錄';
+  return `<p id="reportCounts">學會的注音：${r.symbols.length} / ${ORDER.length}；完成課程：${r.lessons} / ${LESSONS.length}</p>
+    <p id="reportSymbols">${r.symbols.length?r.symbols.join('、'):'還沒有完成注音課程。'}</p>
+    <h5>常錯的注音</h5><p>列出練習至少 3 次且曾答錯的注音。</p>
+    ${r.frequent.length?`<ol class="report-list" id="frequentSymbols">${r.frequent.map(it=>`<li data-symbol="${it.s}"><b class="zy">${it.s}</b><span>答對 ${it.ok} 次／答錯 ${it.ng} 次（${Math.round(it.rate*100)}%）</span></li>`).join('')}</ol>`:'<p id="reportEmpty">還沒有常錯的注音紀錄。</p>'}
+    <p id="reportLast">上次練習：${last}</p><div id="recentRecords">${recordHTML()}</div>`;
+}
+
+function exportProgress(){return JSON.stringify({progress:P,settings:{rate:S.rate,unlockAll:S.unlockAll}},null,2)}
+function parseProgressImport(text){
+  let raw;try{raw=JSON.parse(text)}catch(e){throw Error('內容不是有效的 JSON。')}
+  if(!isRecord(raw))throw Error('進度格式不正確。');
+  const data=Object.hasOwn(raw,'progress')?raw.progress:raw;
+  if(!isRecord(data)||(data.v!==undefined&&data.v!==2)||!isRecord(data.stars)||
+     ['acc','sym'].some(k=>Object.hasOwn(data,k)&&!isRecord(data[k])))throw Error('進度格式不正確。');
+  if(Object.values(data.stars).some(n=>!Number.isInteger(n)||n<1||n>3))throw Error('星星資料不正確。');
+  for(const [field,keys] of [['acc',['m','n','t']],['sym',['ok','ng','t']]]){
+    if(Object.values(data[field]||{}).some(r=>!isRecord(r)||keys.some(k=>!countValue(r[k]))))throw Error('練習資料不正確。');
+  }
+  const progress=readProgress(data);
+  const hasEntries=['stars','acc','sym'].some(k=>Object.keys(data[k]||{}).length);
+  if(hasEntries&&!['stars','acc','sym'].some(k=>Object.keys(progress[k]).length))throw Error('找不到可用的進度。');
+  let settings=null;
+  if(Object.hasOwn(raw,'settings')){
+    const s=raw.settings;
+    if(!isRecord(s)||![.6,.8,1].includes(s.rate)||typeof s.unlockAll!=='boolean')throw Error('設定格式不正確。');
+    settings={rate:s.rate,unlockAll:s.unlockAll};
+  }
+  return{progress,settings};
+}
+function setupProgressTransfer(sh,onChange){
+  const output=sh.querySelector('#exportText'),input=sh.querySelector('#importText');
+  const status=sh.querySelector('#importStatus'),apply=sh.querySelector('#importApply');let pending=null;
+  const clear=()=>{pending=null;apply.textContent='匯入';status.textContent=''};
+  for(const [id,panelId,field] of [['exportBtn','exportPanel',output],['importBtn','importPanel',input]]){
+    const button=sh.querySelector('#'+id),panel=sh.querySelector('#'+panelId);
+    button.onclick=()=>{
+      panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',!panel.hidden);
+      if(!panel.hidden){if(id==='exportBtn'){output.value=exportProgress();sh.querySelector('#copyStatus').textContent=''}field.focus()}
+      else button.focus();
+    };
+  }
+  sh.querySelector('#copyProgress').onclick=async()=>{
+    const message=sh.querySelector('#copyStatus');
+    try{await navigator.clipboard.writeText(output.value);message.textContent='已複製。'}
+    catch(e){output.focus();output.select();message.textContent='請複製已選取的文字。'}
+  };
+  input.oninput=clear;
+  apply.onclick=()=>{
+    try{
+      const backup=parseProgressImport(input.value),before=exportProgress();
+      if(!pending||pending.text!==input.value||pending.before!==before){
+        pending={text:input.value,before};apply.textContent='再按一次確定';
+        const after=Object.values(backup.progress.stars).reduce((a,b)=>a+b,0);
+        status.textContent=`目前 ${totalStars()} 顆星 → 匯入後 ${after} 顆星。再按一次確定取代進度${backup.settings?'和設定':''}。`;return;
+      }
+      P=backup.progress;if(backup.settings)S=backup.settings;save();renderPath.scrolled=0;
+      clear();status.textContent='已匯入進度。';onChange();
+    }catch(e){clear();status.textContent=e.message}
+  };
+  return clear;
+}
 /* 1-7: a sum a 4-year-old cannot do keeps settings for grown-ups */
 function parentGate(then,opener=document.activeElement){
   const a=11+(Math.random()*8|0),b=3+(Math.random()*6|0),ans=a+b;
@@ -690,7 +762,18 @@ function openSettings(opener=document.activeElement){
     <div class="set"><span>發音速度<small>給剛開始學的孩子用「慢」</small></span><div class="seg" id="rate">
       <button data-v="0.6">慢</button><button data-v="0.8">中</button><button data-v="1">快</button></div></div>
     <div class="set"><span>全部解鎖<small>可以直接跳到任何一課</small></span><button class="sw" role="switch" id="ul" aria-label="全部解鎖"></button></div>
-    ${recordHTML()}
+    <button class="btn ghost wide" id="reportBtn" aria-expanded="false" aria-controls="reportPanel">學習報告</button>
+    <section class="parent-panel" id="reportPanel" hidden tabindex="0" aria-labelledby="reportHeading">
+      <h4 id="reportHeading">學習報告</h4><div id="reportBody">${parentReportHTML()}</div></section>
+    <div class="row"><button class="btn ghost" id="exportBtn" aria-expanded="false" aria-controls="exportPanel">匯出進度</button><button class="btn ghost" id="importBtn" aria-expanded="false" aria-controls="importPanel">匯入進度</button></div>
+    <section class="parent-panel" id="exportPanel" hidden aria-labelledby="exportHeading">
+      <h4 id="exportHeading">匯出進度</h4><label for="exportText">進度和設定</label>
+      <textarea id="exportText" rows="7" readonly spellcheck="false"></textarea>
+      <button class="btn" id="copyProgress">複製</button><p class="parent-status" id="copyStatus" role="status"></p></section>
+    <section class="parent-panel" id="importPanel" hidden aria-labelledby="importHeading">
+      <h4 id="importHeading">匯入進度</h4><label for="importText">貼上進度 JSON</label>
+      <textarea id="importText" rows="7" spellcheck="false"></textarea><p>匯入會取代目前的進度。</p>
+      <button class="btn" id="importApply">匯入</button><p class="parent-status" id="importStatus" role="status"></p></section>
     <div class="set"><span>清除學習紀錄<small>星星和進度會回到一開始</small></span><button class="btn ghost" id="rst" style="min-width:0;padding:10px 14px;font-size:.95rem">清除</button></div>
     ${hasZh||HAS_CLIPS?'':'<div class="warn">沒有找到中文語音：請在系統設定加入「中文（台灣）」語音，或改用 Chrome、Edge、Safari。</div>'}
     <p class="credit">注音發音：2017 © 教育部，國語注音符號手冊-開放部件（<a href="https://creativecommons.org/licenses/by/4.0/deed.zh_TW" target="_blank" rel="noopener">CC BY 4.0</a>）。題目與例詞：Microsoft Edge 語音合成（曉臻、曉雨）。</p>
@@ -699,8 +782,16 @@ function openSettings(opener=document.activeElement){
   sh.querySelectorAll('#rate button').forEach(b=>b.onclick=()=>{S.rate=+b.dataset.v;save();sync();speak('注音小學堂')});
   sh.querySelector('#ul').onclick=()=>{S.unlockAll=!S.unlockAll;save();sync()};
   const rst=sh.querySelector('#rst');
+  const reportPanel=sh.querySelector('#reportPanel'),reportButton=sh.querySelector('#reportBtn');
+  reportButton.onclick=()=>{
+    reportPanel.hidden=!reportPanel.hidden;reportButton.setAttribute('aria-expanded',!reportPanel.hidden);
+    if(!reportPanel.hidden){sh.querySelector('#reportBody').innerHTML=parentReportHTML();reportPanel.focus()}
+    else reportButton.focus();
+  };
+  const changed=()=>{sync();armed=false;rst.textContent='清除';rst.style.color='';sh.querySelector('#reportBody').innerHTML=parentReportHTML()};
+  const clearImport=setupProgressTransfer(sh,changed);
   rst.onclick=()=>{if(!armed){armed=true;rst.textContent='再按一次確定';rst.style.color='var(--coral-d)';return}
-    P=emptyProgress();save();rst.textContent='已清除';renderPath.scrolled=0};
+    P=emptyProgress();save();clearImport();changed();rst.textContent='已清除';renderPath.scrolled=0};
   const close=()=>{sh.remove();render();release()};
   sh.querySelector('#cls').onclick=close;sh.onclick=e=>{if(e.target===sh)close()};
   sync();document.body.appendChild(sh);
