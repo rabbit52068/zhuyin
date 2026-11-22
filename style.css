@@ -219,6 +219,20 @@ main{flex:1;padding-block:8px 110px}
 .sheet .box{background:var(--surface);width:100%;max-width:560px;border-radius:26px 26px 0 0;padding:20px max(20px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
 .sheet h3{margin:0;font-size:1.2rem}
 .sheet .box{max-height:100%;overflow-y:auto}
+.sheet .box>*{flex-shrink:0}
+.parent-panel{display:flex;flex-direction:column;gap:10px;border-top:2px solid var(--line);padding-top:14px}
+.parent-panel[hidden]{display:none}
+.parent-panel h4,.parent-panel p{margin:0}
+.parent-panel h5{margin:0;font-size:1rem}
+#reportBody{display:flex;flex-direction:column;gap:10px}
+.parent-panel:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+.report-list{list-style:none;padding:0;margin:10px 0;display:flex;flex-direction:column;gap:6px}
+.report-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.report-list b{font-size:1.7rem;flex:none}
+.report-list span{font-size:.9rem;text-align:right;line-height:1.5}
+.parent-panel textarea{width:100%;min-height:150px;resize:vertical;border:2px solid var(--line);border-radius:12px;padding:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:.9rem;line-height:1.5}
+.parent-panel textarea:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+.parent-status{color:var(--muted);font-size:.9rem;line-height:1.5}
 /* auto margins center the step but let a tall one scroll from the top instead of clipping it */
 .stage>:first-child{margin-top:auto}.stage>:last-child{margin-bottom:auto}
 .say{display:inline-grid;place-items:center;width:2em;height:2em;margin-right:.4em;border-radius:50%;background:var(--sky);box-shadow:0 3px 0 var(--sky-d);vertical-align:middle;flex:none;font-size:.85em}
