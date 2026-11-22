@@ -113,6 +113,16 @@ function tts(text,{rate}={}){
   });
 }
 const saySym=s=>speak(SYM[s].say,{rate:Math.min(S.rate,.75),key:'sym:'+s});
+/* Tap to hear on-screen text (#7): a speaker icon in front of the text; tapping the icon or the text plays
+   it. items are voiceSeq items (strings, or functions that return a promise). A new tap cancels the last one. */
+let TAP=0;
+async function sayTap(items){const t=++TAP;
+  for(const it of items){if(t!==TAP)return;await (typeof it==='string'?speak(it,{rate:1}):it());if(t!==TAP)return;await wait(150)}}
+function readable(el,items){
+  if(!el.querySelector(':scope>.say'))el.insertAdjacentHTML('afterbegin',`<button class="say" type="button" aria-label="唸給我聽">${SPK}</button>`);
+  el.classList.add('readable');
+  el.onclick=e=>{if(e.target.closest('button:not(.say)'))return;sayTap(typeof items==='function'?items():items)};
+  return el}
 let AC=null;
 function tone(seq){
   try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
@@ -138,9 +148,11 @@ function renderPath(m){
   const cur=currentId();
   const curL=cur>=0?LESSONS[cur]:null;
   const msg = !curL ? '全部學完了！你是注音小達人！' :
-    curL.type==='sym' ? `今天來認識 <span class="zy" style="font-size:1.3em;color:var(--sky)">${curL.s}</span> 吧！` :
+    curL.type==='sym' ? `今天來認識 <span class="zy" style="font-size:1.3em;color:var(--sky)">${curL.s}</span>！` :
     curL.type==='review' ? '來玩複習遊戲，把學過的注音找出來！' : curL.type==='blend' ? '把兩個注音拼在一起，會變成一個字喔！' : '一起來聽聽四個聲調！';
-  m.appendChild(h(`<div class="hello">${catSVG('happy')}<p>${msg}<span class="sub">橘子老師陪你一起學注音</span></p></div>`));
+  const hello=h(`<div class="hello">${catSVG('happy')}<p>${msg}<span class="sub">橘子老師陪你一起學注音</span></p></div>`);
+  readable(hello.querySelector('p'),[...(curL&&curL.type==='sym'?['今天來認識',()=>saySym(curL.s)]:[msg]),'橘子老師陪你一起學注音']);
+  m.appendChild(hello);
   let n=0;
   UNITS.forEach((u,ui)=>{
     const big=u.kind==='sym'?u.sy:u.big;
@@ -182,7 +194,8 @@ function renderChart(m){
       g.appendChild(b)});
     wrap.appendChild(g);
   });
-  wrap.appendChild(h(`<p class="note">點一下注音，聽它怎麼唸，再聽一個例詞。綠色的是已經學過的注音。</p>`));
+  const note=h(`<p class="note">點一下注音，聽它怎麼唸，再聽一個例詞。綠色的是已經學過的注音。</p>`);
+  wrap.appendChild(readable(note,['點一下注音，聽它怎麼唸，再聽一個例詞。綠色的是已經學過的注音。']));
   if(!hasZh&&!HAS_CLIPS) wrap.appendChild(h(`<div class="warn">這台裝置好像沒有中文語音。可以到系統設定加入「中文（台灣）」語音，或改用 Chrome、Edge、Safari 開啟，就能聽到發音。</div>`));
   m.appendChild(wrap);
 }
@@ -223,7 +236,7 @@ function startLesson(id){
 let STEP=0;
 const live=t=>!!LS&&t===STEP;
 function later(ms,fn){const t=STEP;setTimeout(()=>{if(live(t))fn()},ms)}
-function stopVoice(){STEP++;stopClip();try{speechSynthesis.cancel()}catch(e){}}
+function stopVoice(){STEP++;TAP++;stopClip();try{speechSynthesis.cancel()}catch(e){}}
 function askQuit(){
   if(!LS||LS.layer.querySelector('.ask'))return;
   if(LS.done)return quitLesson();
@@ -299,16 +312,20 @@ function finish(){
      <div class="bigstars">${[1,2,3].map(i=>`<i class="${i<=stars?'on':''}" style="animation-delay:${.2+i*.25}s">★</i>`).join('')}</div>
      <p>${LS.L.type==='sym'?`你學會了 <span class="zy" style="font-size:1.5em;color:var(--sky)">${LS.L.s}</span>`:'又往前走了一站'}</p>
      <button class="btn go" id="doneBtn" style="margin-top:10px">回到地圖</button></div>`;
+  const title=perfect?'完美過關！':'完成了，你好棒！', more=LS.L.type==='sym'?['你學會了',()=>saySym(LS.L.s)]:['又往前走了一站'];
+  readable(col.querySelector('.result h2'),[title]);readable(col.querySelector('.result p'),more);
   const done=col.querySelector('#doneBtn');done.onclick=quitLesson;done.focus({preventScroll:true});
   sfx.win(); confetti();
-  later(400,()=>speak(perfect?'完美過關':'完成了，你好棒',{rate:1}));
+  later(400,()=>sayAll([title,...more],STEP));
 }
 
 /* ---------- step renderers ---------- */
 function speakerBtn(fn,sm){const b=h(`<button class="speak ${sm?'sm':''}" aria-label="再聽一次">${SPK}</button>`);
   b.play=()=>{b.classList.remove('playing');void b.offsetWidth;b.classList.add('playing');return fn()};
   b.onclick=()=>{b.play()};return b}
-function prompt(text,mood='happy'){return h(`<div class="prompt">${catSVG(mood)}<span>${text}</span></div>`)}
+/* say: what the play icon reads (default: the text itself) */
+function prompt(text,mood='happy',say){const el=h(`<div class="prompt">${catSVG(mood)}<span>${text}</span></div>`);
+  readable(el.querySelector('span'),say||[text]);return el}
 function optionRow(items,target,onRight,{wide=false,label=null,render=null}={}){
   const row=h(`<div class="opts"></div>`);let done=false,miss=0,tb=null;
   const win=b=>{done=true;b.classList.remove('glow');b.classList.add('ok');row.querySelectorAll('.opt').forEach(o=>{if(o!==b)o.classList.add('dim')})};
@@ -336,9 +353,9 @@ const STEPS={
   const ex=h(`<button class="example" aria-label="聽例詞"><span class="em">${SYM[s].e}</span>${wordHTML(s,{hl:s})}</button>`);
   ex.onclick=()=>speak(wordText(s));
   stage.append(ex);
-  stage.append(h(`<p class="hint">「${s}」就在「${wordText(s)}」裡面，紅色的就是它</p>`));
+  stage.append(readable(h(`<p class="hint">「${s}」就在「${wordText(s)}」裡面，紅色的就是它</p>`),[()=>saySym(s),'就在',()=>speak(wordText(s),{rate:1}),'裡面，紅色的就是它']));
   const go=h(`<button class="btn go">我記住了</button>`);go.onclick=next;stage.append(go);
-  voiceSeq(['這是新朋友！',()=>sp.play(),()=>speak(wordText(s),{rate:1})]); // symbol, then its word: each part is a whole clip
+  voiceSeq(['這是新朋友！點一下聽聽看',()=>sp.play(),()=>speak(wordText(s),{rate:1})]); // symbol, then its word: each part is a whole clip
  },
  listen(stage,{s,peers}){
   stage.append(prompt('聽一聽，是哪一個注音？'));
@@ -347,17 +364,18 @@ const STEPS={
   voiceSeq(['聽一聽，是哪一個注音？',()=>sp.play()]);
  },
  picture(stage,{s,peers}){
-  stage.append(prompt(`「${wordText(s)}」少了哪一個注音？`));
+  stage.append(prompt(`「${wordText(s)}」少了哪一個注音？`,'happy',[()=>speak(wordText(s),{rate:1}),'少了哪一個注音？']));
   const ex=h(`<button class="example" aria-label="聽例詞"><span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{blank:s})}</button>`);
   ex.onclick=()=>speak(wordText(s));stage.append(ex);
   stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>{ex.innerHTML=`<span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{hl:s})}`;correct()}));
   voiceSeq([()=>speak(wordText(s),{rate:1}),'少了哪一個注音？']);
  },
  trace(stage,{s}){
-  stage.append(prompt(`沿著藍色的字，寫寫看「${s}」`,'happy'));
+  stage.append(prompt(`沿著藍色的字，寫寫看「${s}」`,'happy',['沿著藍色的字，寫寫看',()=>saySym(s)]));
   const box=h(`<div class="trace"><div class="cross"></div><canvas class="g"></canvas><canvas class="u"></canvas></div>`);
   stage.append(box);
   const hint=h(`<p class="hint"></p>`);stage.append(hint);
+  const setHint=t=>{hint.textContent=t;hint.classList.remove('readable');hint.onclick=null;if(t)readable(hint,[t])};
   const row=h(`<div class="row"></div>`);
   const clr=h(`<button class="btn ghost">擦掉</button>`), ok=h(`<button class="btn">寫好了</button>`);
   row.append(speakerBtn(()=>saySym(s),true),clr,ok);stage.append(row);
@@ -378,13 +396,13 @@ const STEPS={
   u.addEventListener('pointerdown',e=>{if(passed)return;u.setPointerCapture(e.pointerId);cur=[pt(e)];strokes.push(cur);redraw()});
   u.addEventListener('pointermove',e=>{if(!cur)return;cur.push(pt(e));redraw()});
   const end=()=>{cur=null};u.addEventListener('pointerup',end);u.addEventListener('pointercancel',end);
-  clr.onclick=()=>{if(passed)return;strokes=[];redraw();hint.textContent=''};
+  clr.onclick=()=>{if(passed)return;strokes=[];redraw();setHint('')};
   ok.onclick=()=>{if(passed)return;
-    if(!strokes.length){hint.textContent='先用手指沿著藍色的字畫畫看';return}
+    if(!strokes.length){setHint('先用手指沿著藍色的字畫畫看');sayTap(['先用手指沿著藍色的字畫畫看']);return}
     const {cov,prec}=traceScore(s,strokes,W,lw());
-    if(cov>=.45&&prec>=.5){passed=true;redraw();hint.textContent='';correct(cov>.75?'寫得好漂亮！':'寫得很好！')}
-    else if(++fails>=2){passed=true;redraw();hint.textContent='';correct('很努力喔！我們繼續！')}
-    else{wrong({count:false});hint.textContent=cov<.45?'還有一些地方沒有寫到，再試一次！':'要沿著藍色的字寫喔，再試一次！';setTimeout(()=>{strokes=[];redraw()},700)}
+    if(cov>=.45&&prec>=.5){passed=true;redraw();setHint('');correct(cov>.75?'寫得好漂亮！':'寫得很好！')}
+    else if(++fails>=2){passed=true;redraw();setHint('');correct('很努力喔！我們繼續！')}
+    else{wrong({count:false});setHint(cov<.45?'還有一些地方沒有寫到，再試一次！':'要沿著藍色的字寫喔，再試一次！');setTimeout(()=>{strokes=[];redraw()},700)}
   };
   requestAnimationFrame(setup);
   voiceSeq(['沿著藍色的字，寫寫看',()=>saySym(s)]);
@@ -434,7 +452,7 @@ const STEPS={
   voiceSeq(['聽一聽，是哪一個拼音？',()=>sp.play()]);
  },
  blendBuild(stage,{it:[a,b,ch]}){
-  stage.append(prompt(`「${ch}」前面要放哪一個注音？`));
+  stage.append(prompt(`「${ch}」前面要放哪一個注音？`,'happy',[()=>speak(ch,{rate:.7}),'前面要放哪一個注音？']));
   const bl=h(`<div class="blend"><span class="p a"><span class="blank" style="font-size:1.6rem">?</span></span><span class="op">＋</span><span class="p b">${b}</span></div>`);
   stage.append(bl);
   const sp=speakerBtn(()=>speak(ch,{rate:.7}),true);stage.append(sp);
@@ -450,7 +468,7 @@ const STEPS={
     b.onclick=()=>speak(ch,{rate:.7});g.appendChild(b)});
   stage.append(g);
   const go=h(`<button class="btn go">我聽完了</button>`);go.onclick=next;stage.append(go);
-  voiceSeq(['同一個拼音，有四種唱法',...set.map(([ch])=>()=>speak(ch,{rate:.7}))]);
+  voiceSeq(['同一個拼音，有四種唱法，點點看！',...set.map(([ch])=>()=>speak(ch,{rate:.7}))]);
  },
  tonePick(stage,{set,k}){
   const [ch,zy]=set[k];

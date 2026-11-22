@@ -57,6 +57,17 @@ const KEYS = new Set(lines().map(l => l.key));
   } else console.log('SKIP clip playback (clips.js is empty)');
   const r2 = await pg.evaluate(async () => { window.__played = []; window.__said = []; await speak('這句沒有錄音'); return { p: window.__played.slice(), s: window.__said.slice() } });
   ok('line without a clip uses speech synthesis', r2.p.length === 0 && r2.s[0] === '這句沒有錄音', JSON.stringify(r2));
+  // #7: on-screen text has a play icon; tapping the icon or the text reads it
+  await pg.evaluate(() => { if (LS) quitLesson(); render() });
+  const greet = await pg.evaluate(async () => { const p = document.querySelector('.hello p'); window.__played = [];
+    p.querySelector('.say').click(); await new Promise(r => setTimeout(r, 700)); return { icon: !!p.querySelector('.say'), p: window.__played.slice() } });
+  ok('#7 map greeting reads aloud from its icon', greet.icon && greet.p.length >= 2, JSON.stringify(greet.p));
+  const hint = await pg.evaluate(async () => { startLesson(0); await new Promise(r => setTimeout(r, 2500));
+    const el = document.querySelector('#stage .hint'); window.__played = [];
+    el.click(); await new Promise(r => setTimeout(r, 900)); return { icon: !!el.querySelector('.say'), p: window.__played.slice() } });
+  ok('#7 intro hint reads aloud when the text is tapped', hint.icon && hint.p[0] === 'sym/01.mp3' && hint.p.length === 4, JSON.stringify(hint.p));
+  const prompts = await pg.evaluate(() => [...document.querySelectorAll('#stage .prompt span')].every(s => s.querySelector('.say')));
+  ok('#7 lesson prompt has a play icon', prompts);
   ok('no page errors', errs.length === 0, errs.join(' | '));
   await b.close();
 })();

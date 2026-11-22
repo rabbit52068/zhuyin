@@ -217,6 +217,10 @@ main{flex:1;padding-block:8px 110px}
 .sheet{position:fixed;inset:0;z-index:30;background:rgba(10,20,40,.45);display:flex;align-items:flex-end;justify-content:center}
 .sheet .box{background:var(--surface);width:100%;max-width:560px;border-radius:26px 26px 0 0;padding:20px max(20px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
 .sheet h3{margin:0;font-size:1.2rem}
+.say{display:inline-grid;place-items:center;width:1.75em;height:1.75em;margin-right:.4em;border-radius:50%;background:var(--sky);box-shadow:0 3px 0 var(--sky-d);vertical-align:middle;flex:none;font-size:.85em}
+.say svg{width:62%;height:62%;fill:var(--on-color)}
+.say:active{transform:translateY(2px);box-shadow:0 1px 0 var(--sky-d)}
+.readable{cursor:pointer}
 .credit{margin:14px 0 0;font-size:.8rem;line-height:1.5;color:var(--muted);font-weight:500}
 .credit a{color:inherit}
 .set{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:2px solid var(--line);font-weight:700}
