@@ -1,0 +1,42 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install browser test dependencies (CI only)
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: Run data and browser tests
+        shell: bash
+        run: |
+          set -uo pipefail
+          test_status=0
+          for test in data test test1 bub voice trace; do
+            log=$(mktemp)
+            echo "Running tests/$test.js"
+            if node "tests/$test.js" "$GITHUB_WORKSPACE/index.html" 2>&1 | tee "$log"; then
+              :
+            else
+              test_status=1
+            fi
+            # Some legacy tests log failures without setting a nonzero exit code.
+            if grep -q '^FAIL' "$log"; then
+              test_status=1
+            fi
+          done
+          exit "$test_status"
