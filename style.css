@@ -111,7 +111,7 @@ main{flex:1;padding-block:8px 110px}
 .prog{flex:1;height:18px;border-radius:999px;background:var(--line);overflow:hidden}
 .prog i{display:block;height:100%;width:0;background:var(--leaf);border-radius:999px;transition:width .4s ease;box-shadow:inset 0 -5px 0 rgba(0,0,0,.08)}
 .stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:18px;padding-block:8px 18px;min-height:0;overflow-y:auto;text-align:center}
-.prompt{font-size:1.25rem;font-weight:900;display:flex;align-items:center;gap:10px;text-wrap:balance;justify-content:center}
+.prompt{font-size:1.25rem;font-weight:900;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;text-wrap:balance;justify-content:center}
 .prompt svg{width:52px;height:52px;flex:none}
 .speak{width:110px;height:110px;border-radius:32px;background:var(--sky);box-shadow:0 7px 0 var(--sky-d);display:grid;place-items:center}
 .speak svg{width:58px;height:58px;fill:var(--on-color)}
@@ -163,7 +163,7 @@ main{flex:1;padding-block:8px 110px}
 @keyframes shake{20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
 .opt .lab{display:block;font-family:var(--f-ui);font-size:.75rem;color:var(--muted);font-weight:700;margin-top:4px}
 
-.trace{position:relative;width:min(300px,78vw);aspect-ratio:1;max-width:100%;background:var(--surface);border:3px solid var(--line);border-bottom-width:7px;border-radius:28px;touch-action:none;overflow:hidden}
+.trace{position:relative;flex:none;width:max(180px,min(300px,78vw,calc(100vh - 400px)));aspect-ratio:1;max-width:100%;background:var(--surface);border:3px solid var(--line);border-bottom-width:7px;border-radius:28px;touch-action:none;overflow:hidden}
 .trace canvas{position:absolute;inset:0;width:100%;height:100%}
 .trace .cross{position:absolute;inset:0;background:
   repeating-linear-gradient(90deg,var(--line) 0 8px,transparent 8px 16px) center/100% 2px no-repeat,
@@ -174,7 +174,7 @@ main{flex:1;padding-block:8px 110px}
 .btn.ghost{background:var(--surface);color:var(--muted);box-shadow:0 5px 0 var(--line);border:2px solid var(--line)}
 .btn.go{--c:var(--leaf);--cd:var(--leaf-d)}
 .btn.wide{width:100%}
-.hint{color:var(--muted);font-weight:700;min-height:1.4em}
+.hint{color:var(--muted);font-weight:700;min-height:1.4em;text-wrap:balance}
 
 .pond{position:relative;width:100%;height:min(360px,48vh);min-height:260px;border-radius:28px;background:
   radial-gradient(circle at 20% 15%,color-mix(in srgb,var(--sky) 14%,transparent),transparent 45%),
@@ -274,6 +274,14 @@ main{flex:1;padding-block:8px 110px}
   .layer[data-step="intro"] .fb:not(.show){display:none}
   .stage[data-step="intro"]{gap:10px;padding-block:10px}
   .stage[data-step="intro"]>*{flex-shrink:0}
+  .stage[data-step="trace"]>*{flex-shrink:0}
+  .stage[data-step="trace"]{gap:8px;padding-block:6px 10px}
+  .stage[data-step="trace"] .prompt{font-size:1.05rem;gap:4px 8px}
+  .stage[data-step="trace"] .prompt svg{width:36px;height:36px}
+  .stage[data-step="trace"] .hint{min-height:0;margin:0}
+  .stage[data-step="trace"] .row{gap:8px;flex-wrap:nowrap;width:100%;max-width:340px;padding-inline:12px;box-sizing:border-box}
+  .stage[data-step="trace"] .row .speak{width:64px;height:64px;border-radius:20px;flex:none}
+  .stage[data-step="trace"] .row .btn{min-width:0;flex:1 1 96px;padding:12px 8px;white-space:nowrap}
   .stage[data-step="intro"] .cardrow{flex-direction:row;gap:16px}
   .stage[data-step="intro"] .bigcard{width:min(180px,48vw,26vh)}
   .stage[data-step="intro"] .bigcard .s{font-size:min(120px,34vw,19vh)}
