@@ -91,6 +91,12 @@ main{flex:1;padding-block:8px 110px}
 .tile:active{transform:translateY(3px);border-bottom-width:2px;margin-top:3px}
 .tile .s{font-family:var(--f-zy);font-size:2.4rem;line-height:1.1;font-weight:700}
 .tile .e{font-size:1.8rem;line-height:1}
+/* 4-2 sticker book: a picture is a grey silhouette until the symbol is learned, then a sticker with a white edge. */
+:root{--sil:brightness(0) opacity(.14)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--sil:brightness(0) invert(1) opacity(.2)}}
+:root[data-theme="dark"]{--sil:brightness(0) invert(1) opacity(.2)}
+.tile .e svg{filter:var(--sil)}
+.tile.done .e svg{filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 2px 2px rgba(20,40,90,.28))}
 .tile.done{border-color:color-mix(in srgb,var(--leaf) 55%,var(--line))}
 .tile.done .s{color:var(--leaf-d)}
 .note{color:var(--muted);font-size:.85rem;line-height:1.6;margin-top:18px}
