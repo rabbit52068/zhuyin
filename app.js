@@ -79,6 +79,8 @@ const pick=a=>a[Math.random()*a.length|0];
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const wordText=s=>SYM[s].w.map(x=>x[0]).join('');
+/* Example-word picture (roadmap 4-1): inline SVG sized by the parent font-size; emoji if a picture is missing. */
+const pic=s=>ART[s]?`<svg viewBox="0 0 100 100" width="1em" height="1em" aria-hidden="true" focusable="false" style="display:block">${ART[s]}</svg>`:SYM[s].e;
 
 // Zhuyin column beside a character
 function zc(zy,{hl=null,blank=null}={}){
@@ -331,7 +333,7 @@ function renderChart(m){
   groups.forEach((arr,t)=>{
     wrap.appendChild(h(`<h2>${t}<small>${arr.length} 個</small></h2>`));
     const g=h(`<div class="grid"></div>`);
-    arr.forEach(s=>{const b=h(`<button class="tile ${L.has(s)?'done':''}" aria-label="${s} ${wordText(s)}"><span class="s">${s}</span><span class="e">${SYM[s].e}</span></button>`);
+    arr.forEach(s=>{const b=h(`<button class="tile ${L.has(s)?'done':''}" aria-label="${s} ${wordText(s)}"><span class="s">${s}</span><span class="e">${pic(s)}</span></button>`);
       b.onclick=async()=>{b.classList.add('cat-bounce');setTimeout(()=>b.classList.remove('cat-bounce'),600);const g=++AUD;await saySym(s);if(g!==AUD)return;await wait(GAP);if(g===AUD)speak(wordText(s))};
       g.appendChild(b)});
     wrap.appendChild(g);
@@ -537,7 +539,7 @@ const STEPS={
   const sp=speakerBtn(()=>saySym(s),true);
   card.querySelector('.s').onclick=()=>sp.click();
   const cr=h(`<div class="cardrow"></div>`);cr.append(card,sp);stage.append(cr);
-  const ex=h(`<button class="example" aria-label="聽例詞"><span class="em">${SYM[s].e}</span>${wordHTML(s,{hl:s})}</button>`);
+  const ex=h(`<button class="example" aria-label="聽例詞"><span class="em">${pic(s)}</span>${wordHTML(s,{hl:s})}</button>`);
   ex.onclick=tap(()=>speak(wordText(s)));
   stage.append(ex);
   stage.append(readable(h(`<p class="hint">「${s}」就在「${wordText(s)}」裡面，紅色的就是它</p>`),[()=>saySym(s),`就在${wordText(s)}裡面，紅色的就是它`]));
@@ -552,9 +554,9 @@ const STEPS={
  },
  picture(stage,{s,peers}){
   stage.append(prompt(`「${wordText(s)}」少了哪一個注音？`,'happy',[()=>speak(wordText(s),{rate:1}),'少了哪一個注音？']));
-  const ex=h(`<button class="example" aria-label="聽例詞"><span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{blank:s})}</button>`);
+  const ex=h(`<button class="example" aria-label="聽例詞"><span class="em" style="font-size:4rem">${pic(s)}</span>${wordHTML(s,{blank:s})}</button>`);
   ex.onclick=tap(()=>speak(wordText(s)));stage.append(ex);
-  stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>{ex.innerHTML=`<span class="em" style="font-size:4rem">${SYM[s].e}</span>${wordHTML(s,{hl:s})}`;correct()},{symbols:[s]}));
+  stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>{ex.innerHTML=`<span class="em" style="font-size:4rem">${pic(s)}</span>${wordHTML(s,{hl:s})}`;correct()},{symbols:[s]}));
   voiceSeq([()=>speak(wordText(s),{rate:1}),'少了哪一個注音？']);
  },
  trace(stage,{s}){

@@ -90,7 +90,7 @@ main{flex:1;padding-block:8px 110px}
 .tile{background:var(--surface);border:2px solid var(--line);border-bottom-width:5px;border-radius:18px;padding:8px 4px 6px;display:flex;flex-direction:column;align-items:center;gap:2px}
 .tile:active{transform:translateY(3px);border-bottom-width:2px;margin-top:3px}
 .tile .s{font-family:var(--f-zy);font-size:2.4rem;line-height:1.1;font-weight:700}
-.tile .e{font-size:1.2rem;line-height:1}
+.tile .e{font-size:1.8rem;line-height:1}
 .tile.done{border-color:color-mix(in srgb,var(--leaf) 55%,var(--line))}
 .tile.done .s{color:var(--leaf-d)}
 .note{color:var(--muted);font-size:.85rem;line-height:1.6;margin-top:18px}
