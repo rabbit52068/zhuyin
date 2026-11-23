@@ -139,6 +139,13 @@ const file = pathToFileURL(path.resolve(process.argv[2] || path.join(__dirname, 
       assert.equal(await active(page), 'setBtn');
     });
 
+    for (const height of [568, 640, 667, 740, 844]) await scenario('a11y trace box stays square at 390x' + height, async page => {
+      await page.click('.node.cur'); await page.evaluate(() => { next(); next() }); await page.waitForSelector('.trace'); await settle(page);
+      const r = await page.evaluate(() => { const b = document.querySelector('.trace').getBoundingClientRect(), s = document.querySelector('#stage'); return { w: b.width, h: b.height, scroll: s.scrollHeight, client: s.clientHeight } });
+      assert.ok(Math.abs(r.w - r.h) < 1 && r.w >= 180, JSON.stringify(r));
+      if (height >= 640) assert.ok(r.scroll <= r.client, 'trace step fits without scrolling: ' + JSON.stringify(r));
+    }, height);
+
     for (const height of [667, 740, 844]) await scenario('a11y intro layout at 390x' + height, async page => {
       await page.click('.node.cur'); await page.evaluate(() => document.fonts.ready); await settle(page);
       const layout = await page.evaluate(() => {
