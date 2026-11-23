@@ -247,7 +247,8 @@ main{flex:1;padding-block:8px 110px}
 /* auto margins center the step but let a tall one scroll from the top instead of clipping it */
 .shelf{display:none}
 @media (min-height:800px){.shelf{display:flex;flex:none;justify-content:center;gap:12px;padding:0 0 22px}.shelf:empty{display:none}.layer[data-step="intro"] .shelf,.layer[data-step="trace"] .shelf{display:none}}
-.stage>:first-child{margin-top:auto}.stage>:last-child{margin-bottom:auto}
+.stage>:first-child{margin-top:auto}
+.stage[data-step="intro"]>:first-child{margin-top:0}.stage>:last-child{margin-bottom:auto}
 .say{display:inline-grid;place-items:center;width:2em;height:2em;margin-right:.4em;border-radius:50%;background:var(--sky);box-shadow:0 3px 0 var(--sky-d);vertical-align:middle;flex:none;font-size:.85em}
 .say svg{width:72%;height:72%;fill:var(--on-color)}
 .prompt .say{width:1.6em;height:1.6em;margin-right:.3em}
@@ -282,10 +283,14 @@ main{flex:1;padding-block:8px 110px}
   .stage[data-step="trace"] .row{gap:8px;flex-wrap:nowrap;width:100%;max-width:340px;padding-inline:12px;box-sizing:border-box}
   .stage[data-step="trace"] .row .speak{width:64px;height:64px;border-radius:20px;flex:none}
   .stage[data-step="trace"] .row .btn{min-width:0;flex:1 1 96px;padding:12px 8px;white-space:nowrap}
-  .stage[data-step="intro"] .cardrow{flex-direction:row;gap:16px}
-  .stage[data-step="intro"] .bigcard{width:min(180px,48vw,26vh)}
-  .stage[data-step="intro"] .bigcard .s{font-size:min(120px,34vw,19vh)}
-  .stage[data-step="intro"] .example{padding:8px 14px}
+  .stage[data-step="intro"] .cardrow{gap:10px}
+  .stage[data-step="intro"] .cardrow .speak{width:64px;height:64px;border-radius:20px}
+  .stage[data-step="intro"] .bigcard{width:min(180px,48vw,24vh)}
+  .stage[data-step="intro"] .bigcard .s{font-size:min(120px,34vw,16vh)}
+  .stage[data-step="intro"] .prompt{font-size:1.05rem;gap:4px 8px}
+  .stage[data-step="intro"] .prompt svg{width:36px;height:36px}
+  .stage[data-step="intro"] .hint{font-size:.9rem}
+  .stage[data-step="intro"] .example{padding:6px 12px}
   .stage[data-step="intro"] .hint{margin:0;line-height:1.5}
 }
 /* 4-4 motion: each step slides in from the right; the intro symbol card pops; the right answer flies to the progress bar */

@@ -162,7 +162,7 @@ const file = pathToFileURL(path.resolve(process.argv[2] || path.join(__dirname, 
       if (height <= 740) {
         assert.ok(layout.scroll <= layout.client, JSON.stringify(layout));
         assert.ok(layout.top >= layout.stageTop && layout.bottom <= layout.stageBottom && layout.bottom <= layout.viewport, JSON.stringify(layout));
-        assert.equal(layout.direction, 'row'); assert.equal(layout.feedback, 'none');
+        assert.equal(layout.direction, 'column'); assert.equal(layout.feedback, 'none');
         for (const target of layout.targets) assert.ok(target.w >= 44 && target.h >= 44, JSON.stringify(target));
       } else {
         assert.equal(layout.direction, 'column');
