@@ -31,7 +31,10 @@ const file = pathToFileURL(path.resolve(process.argv[2] || path.join(__dirname, 
     finally { if (context) await context.close() }
   }
   const active = page => page.evaluate(() => document.activeElement.id);
+  // Step and card entrance animations (roadmap 4-4) move things for ~0.5 s; layout and focus checks wait for them.
+  const settle = page => page.evaluate(() => Promise.all(document.getAnimations().filter(a => a.effect.getComputedTiming().iterations < Infinity).map(a => a.finished.catch(() => {}))));
   async function wraps(page, first, last) {
+    await settle(page);
     await page.focus(last); await page.keyboard.press('Tab');
     assert.ok(await page.locator(first).evaluate(el => el === document.activeElement), 'Tab wraps to first');
     await page.focus(first); await page.keyboard.press('Shift+Tab');
@@ -137,7 +140,7 @@ const file = pathToFileURL(path.resolve(process.argv[2] || path.join(__dirname, 
     });
 
     for (const height of [667, 740, 844]) await scenario('a11y intro layout at 390x' + height, async page => {
-      await page.click('.node.cur'); await page.evaluate(() => document.fonts.ready); await page.waitForTimeout(100);
+      await page.click('.node.cur'); await page.evaluate(() => document.fonts.ready); await settle(page);
       const layout = await page.evaluate(() => {
         const stage = document.querySelector('#stage'), go = stage.querySelector('.btn.go');
         const a = stage.getBoundingClientRect(), b = go.getBoundingClientRect();
