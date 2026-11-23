@@ -333,7 +333,7 @@ function renderChart(m){
   groups.forEach((arr,t)=>{
     wrap.appendChild(h(`<h2>${t}<small>${arr.length} 個</small></h2>`));
     const g=h(`<div class="grid"></div>`);
-    arr.forEach(s=>{const b=h(`<button class="tile ${L.has(s)?'done':''}" aria-label="${s} ${wordText(s)}"><span class="s">${s}</span><span class="e">${pic(s)}</span></button>`);
+    arr.forEach(s=>{const b=h(`<button class="tile ${L.has(s)?'done':''}" aria-label="${s} ${wordText(s)}${L.has(s)?' 已學會':' 還沒學'}"><span class="s">${s}</span><span class="e">${pic(s)}</span></button>`);
       b.onclick=async()=>{b.classList.add('cat-bounce');setTimeout(()=>b.classList.remove('cat-bounce'),600);const g=++AUD;await saySym(s);if(g!==AUD)return;await wait(GAP);if(g===AUD)speak(wordText(s))};
       g.appendChild(b)});
     wrap.appendChild(g);
