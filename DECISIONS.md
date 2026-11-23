@@ -10,6 +10,7 @@ Date: 2026-11-21. These answer the three open items at the end of `ROADMAP.md` (
 - Style A uses the same recipe as `catSVG()`: flat fill, 3 px outline in a darker shade of the fill, one white highlight. The cat needs no change.
 - Style C is Style A plus a white border and a small shadow (one SVG filter). It fits 4-2: a grey silhouette before the child learns the symbol, the sticker after.
 - Rejected: Style B (soft, no outline) needs a new cat and blurs at 44 px. Style D (ink line in a badge) clashes with the cat's orange outline and makes each picture about 30% smaller.
+- 2026-11-23: all 37 pictures are drawn in Style A in `art.js`, in this project, so no third-party licence applies. The owner approved the style. soco-st was not used (its terms forbid AI-style imitation and redistribution).
 - An illustrator is not needed for v2.0. Revisit if the game grows past the 37 base words (stage 6).
 
 ## 2. Voice (roadmap 7-1 and the "錄音" external task)

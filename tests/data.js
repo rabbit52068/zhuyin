@@ -10,6 +10,8 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'data.js'), 'utf8') +
   ';this.D = {SYM, ORDER, UNITS, TONES, CONFUSE, LESSONS};', ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'clips.js'), 'utf8') + ';this.C = CLIPS;', ctx);
 const { SYM, ORDER, UNITS, TONES, CONFUSE, LESSONS } = ctx.D;
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'art.js'), 'utf8') + ';this.ART = ART;', ctx);
+const ART = ctx.ART;
 
 function check(name, fn) {
   try { fn(); console.log('PASS ' + name) }
@@ -149,4 +151,14 @@ check('every clip key is a spoken line and references an existing file under aud
     const realRelative = path.relative(fs.realpathSync(audio), fs.realpathSync(target));
     assert.ok(realRelative && !realRelative.startsWith('..') && !path.isAbsolute(realRelative), `${key}: resolves outside audio/: ${file}`);
   }
+});
+
+check('every symbol has a safe example-word picture', () => {
+  for (const s of ORDER) {
+    const svg = ART[s];
+    assert.ok(typeof svg === 'string' && svg.includes('<'), `${s}: missing picture`);
+    // Many copies of one picture can share a page: no ids, scripts or handlers.
+    assert.ok(!/\sid=|<script|\son\w+=|href=|<image|<foreignObject/i.test(svg), `${s}: unsafe markup`);
+  }
+  assert.deepEqual(Object.keys(ART).filter(k => !ORDER.includes(k)), [], 'pictures for unknown symbols');
 });
