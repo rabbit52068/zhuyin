@@ -96,7 +96,7 @@ main{flex:1;padding-block:8px 110px}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--sil:brightness(0) invert(1) opacity(.2)}}
 :root[data-theme="dark"]{--sil:brightness(0) invert(1) opacity(.2)}
 .tile .e svg{filter:var(--sil)}
-.tile.done .e svg{filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 2px 2px rgba(20,40,90,.28))}
+.tile.done .e svg,.shelf .stk svg{filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff) drop-shadow(0 2px 2px rgba(20,40,90,.28))}
 .tile.done{border-color:color-mix(in srgb,var(--leaf) 55%,var(--line))}
 .tile.done .s{color:var(--leaf-d)}
 .note{color:var(--muted);font-size:.85rem;line-height:1.6;margin-top:18px}
@@ -245,6 +245,8 @@ main{flex:1;padding-block:8px 110px}
 .parent-panel textarea:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 .parent-status{color:var(--muted);font-size:.9rem;line-height:1.5}
 /* auto margins center the step but let a tall one scroll from the top instead of clipping it */
+.shelf{display:none}
+@media (min-height:800px){.shelf{display:flex;flex:none;justify-content:center;gap:12px;padding:0 0 22px}.shelf:empty{display:none}.layer[data-step="intro"] .shelf,.layer[data-step="trace"] .shelf{display:none}}
 .stage>:first-child{margin-top:auto}.stage>:last-child{margin-bottom:auto}
 .say{display:inline-grid;place-items:center;width:2em;height:2em;margin-right:.4em;border-radius:50%;background:var(--sky);box-shadow:0 3px 0 var(--sky-d);vertical-align:middle;flex:none;font-size:.85em}
 .say svg{width:72%;height:72%;fill:var(--on-color)}

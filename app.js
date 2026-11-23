@@ -375,8 +375,11 @@ function startLesson(id,opener=document.activeElement){
   const L=typeof id==='object'?id:LESSONS[id];
   const layer=h(`<div class="layer" role="dialog" aria-label="課程"><div class="lesson-content"><div class="col">
      <div class="lbar"><button class="iconbtn" id="xBtn" aria-label="離開課程"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button><div class="prog"><i></i></div></div>
-     <div class="stage" id="stage"></div></div>
+     <div class="stage" id="stage"></div>
+     <div class="shelf" id="shelf" aria-hidden="true"></div></div>
      <div class="fb" id="fb"><div class="in"><div class="msg">${catSVG('happy')}<span id="fbTxt"></span></div><button class="btn go" id="fbGo">繼續</button></div></div></div></div>`);
+  /* 4-5: stickers already earned fill the empty space on tall screens; the current symbol is left out, and review lessons show none, so no picture gives away an answer */
+  layer.querySelector('#shelf').innerHTML=L.type!=='sym'?'':[...learned()].filter(s=>s!==L.s).slice(-6).map(s=>`<span class="stk" style="font-size:2.6rem">${pic(s)}</span>`).join('');
   document.body.appendChild(layer);
   document.body.style.overflow='hidden';
   LS={L,steps:buildSteps(L),i:0,mistakes:0,layer};
