@@ -280,4 +280,11 @@ main{flex:1;padding-block:8px 110px}
   .stage[data-step="intro"] .example{padding:8px 14px}
   .stage[data-step="intro"] .hint{margin:0;line-height:1.5}
 }
+/* 4-4 motion: each step slides in from the right; the intro symbol card pops; the right answer flies to the progress bar */
+.stage{overflow-x:hidden}
+.stage>*{animation:stepIn .26s ease-out backwards}
+@keyframes stepIn{from{opacity:0;transform:translateX(28px)}}
+.bigcard{animation:cardPop .5s cubic-bezier(.2,1.4,.4,1) .08s backwards}
+@keyframes cardPop{from{opacity:0;transform:scale(.6)}}
+.fly{position:fixed;z-index:40;pointer-events:none;display:flex;align-items:center;justify-content:center;box-sizing:border-box;background:var(--surface);border:3px solid var(--leaf);border-radius:18px;font-family:var(--f-zy);font-size:2.6rem;font-weight:700;color:var(--ink)}
 @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

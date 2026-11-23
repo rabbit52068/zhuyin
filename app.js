@@ -518,6 +518,18 @@ function speakerBtn(fn,sm){const b=h(`<button class="speak ${sm?'sm':''}" aria-l
 /* say: what the play icon reads (default: the text itself) */
 function prompt(text,mood='happy',say){const el=h(`<div class="prompt">${catSVG(mood)}<span>${text}</span></div>`);
   readable(el.querySelector('span'),say||[text]);return el}
+/* 4-4: the right answer flies to the end of the progress bar. Decoration only: not focusable, hidden from screen readers, skipped when reduced motion is on. */
+function flyToProg(el){
+  if(!LS||!el.animate||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const bar=LS.layer.querySelector('.prog'),r=el.getBoundingClientRect(),pr=bar.getBoundingClientRect();
+  if(!r.width||!pr.width)return;
+  const f=document.createElement('div');f.className='fly';f.setAttribute('aria-hidden','true');f.innerHTML=el.innerHTML;
+  Object.assign(f.style,{left:r.left+'px',top:r.top+'px',width:r.width+'px',height:r.height+'px'});
+  LS.layer.appendChild(f);
+  const dx=pr.left+pr.width*Math.min(1,(LS.i+1)/LS.steps.length)-(r.left+r.width/2),dy=pr.top+pr.height/2-(r.top+r.height/2);
+  const an=f.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${dx}px,${dy}px) scale(.2)`,opacity:.2}],{duration:600,easing:'cubic-bezier(.5,0,.8,.4)'});
+  an.onfinish=an.oncancel=()=>f.remove();
+}
 function optionRow(items,target,onRight,{wide=false,label=null,render=null,symbols=[]}={}){
   const row=h(`<div class="opts"></div>`);let done=false,miss=0,tb=null;
   const win=b=>{done=true;b.classList.remove('glow');b.classList.add('ok');row.querySelectorAll('.opt').forEach(o=>{if(o!==b)o.classList.add('dim')})};
@@ -526,7 +538,7 @@ function optionRow(items,target,onRight,{wide=false,label=null,render=null,symbo
     b.innerHTML=render?render(it):it;
     if(it===target)tb=b;
     b.onclick=async()=>{if(done)return;
-      if(it===target){win(b);recordPractice(symbols,true);onRight&&onRight();return}
+      if(it===target){win(b);flyToProg(b);recordPractice(symbols,true);onRight&&onRight();return}
       b.classList.remove('no');void b.offsetWidth;b.classList.add('no');recordPractice(symbols,false);miss++;
       if(miss>=2){win(tb);const w=wrong();if(await w){LS.demo=true;correct.since=w.g;onRight&&onRight()}return} // 1-3: show the answer, move on
       tb.classList.add('glow'); // 1-2: hint the right one
