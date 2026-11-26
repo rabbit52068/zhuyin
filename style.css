@@ -161,6 +161,9 @@ main{flex:1;padding-block:8px 110px}
 .rec-list li{display:flex;justify-content:space-between;gap:12px;font-size:.92rem;padding:6px 2px;border-bottom:1px dashed var(--line)}
 .rec-list b{color:var(--muted);font-variant-numeric:tabular-nums}
 @keyframes shake{20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.opt.withpic{height:auto;min-height:104px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px 8px}
+.opt.withpic .zy1{font-size:2.6rem;line-height:1.05}
+.opt.withpic .pic1{font-size:2.2rem;line-height:1}
 .opt .lab{display:block;font-family:var(--f-ui);font-size:.75rem;color:var(--muted);font-weight:700;margin-top:4px}
 
 .trace{position:relative;flex:none;width:max(180px,min(300px,78vw,calc(100vh - 400px)));aspect-ratio:1;max-width:100%;background:var(--surface);border:3px solid var(--line);border-bottom-width:7px;border-radius:28px;touch-action:none;overflow:hidden}
