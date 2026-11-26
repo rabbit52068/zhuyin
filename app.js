@@ -62,12 +62,13 @@ function recordPractice(symbols,ok){
   store.set('zy-progress',P); // keep attempts even when the lesson is left unfinished
 }
 const INITIALS=new Set(UNITS.filter(u=>u.kind==='sym'&&u.tag==='聲母').flatMap(u=>[...u.sy]));
+const MEDIALS=new Set(UNITS.filter(u=>u.kind==='sym'&&u.tag==='介音').flatMap(u=>[...u.sy]));
 const FINALS=new Set(UNITS.filter(u=>u.kind==='sym'&&['韻母','介音'].includes(u.tag)).flatMap(u=>[...u.sy]));
 function simpleSymbols(zy){
   const sy=[...zy.replace(/[ˊˇˋ˙]/g,'')];
   // A single symbol or consonant + vowel/medial. Skip future three-part/complex items.
   const single=sy.length===1&&Object.hasOwn(SYM,sy[0]);
-  const pair=sy.length===2&&INITIALS.has(sy[0])&&FINALS.has(sy[1]);
+  const pair=sy.length===2&&(INITIALS.has(sy[0])||MEDIALS.has(sy[0]))&&FINALS.has(sy[1]);
   return single||pair?sy:[];
 }
 
@@ -707,7 +708,8 @@ const STEPS={
   const bl=h(`<div class="blend"><span class="p a"><span class="blank" style="font-size:1.6rem">?</span></span><span class="op">＋</span><span class="p b">${b}</span></div>`);
   stage.append(bl);
   const sp=speakerBtn(()=>speak(ch,{rate:.7}),true);stage.append(sp);
-  const opts=[a,...distractors(a,2,['ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄍ','ㄎ','ㄏ','ㄓ'],[...INITIALS])];
+  const front=MEDIALS.has(a)?[...MEDIALS]:[...INITIALS]; // 結合韻 starts with a medial, so its choices are the three medials
+  const opts=[a,...distractors(a,2,MEDIALS.has(a)?front:['ㄅ','ㄆ','ㄇ','ㄈ','ㄉ','ㄊ','ㄍ','ㄎ','ㄏ','ㄓ'],front)];
   stage.append(optionRow(opts,a,async()=>{bl.querySelector('.a').textContent=a;correct(`${a}${b}，${ch}`,[()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{symbols:simpleSymbols(a),label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
   voiceSeq([()=>speak(ch,{rate:.7}),'前面要放哪一個注音？']);
  },

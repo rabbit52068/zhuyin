@@ -43,7 +43,7 @@ const file = pathToFileURL(path.resolve(process.argv[2] || path.join(__dirname, 
         'ㄊ': { ok: 0, ng: 2, t: day }, 'ㄋ': { ok: 1, ng: 4, t: day }, 'ㄌ': { ok: 2, ng: 8, t: day } },
     }, async page => {
       const counts = await page.locator('#reportCounts').textContent();
-      assert.ok(counts.includes('2 / 37') && counts.includes('3 / 53'), counts);
+      assert.ok(counts.includes('2 / 37') && counts.includes('3 / 55'), counts);
       assert.equal(await page.locator('#reportSymbols').textContent(), 'ㄅ、ㄆ');
       const rows = await page.locator('#frequentSymbols li').evaluateAll(els => els.map(el => ({ s: el.dataset.symbol, text: el.textContent })));
       assert.deepEqual(rows.map(r => r.s), ['ㄇ', 'ㄌ', 'ㄋ', 'ㄅ', 'ㄉ']);
@@ -67,7 +67,7 @@ const file = pathToFileURL(path.resolve(process.argv[2] || path.join(__dirname, 
     await scenario('parent report empty state is clear and Escape returns to Settings',
       { v: 2, stars: {}, acc: {}, sym: {} }, async page => {
         const counts = await page.locator('#reportCounts').textContent();
-        assert.ok(counts.includes('0 / 37') && counts.includes('0 / 53'));
+        assert.ok(counts.includes('0 / 37') && counts.includes('0 / 55'));
         assert.ok((await page.locator('#reportEmpty').textContent()).includes('還沒有常錯'));
         assert.ok((await page.locator('#reportLast').textContent()).includes('還沒有練習紀錄'));
         assert.equal(await page.locator('#frequentSymbols li').count(), 0);

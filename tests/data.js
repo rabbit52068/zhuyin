@@ -41,7 +41,7 @@ check('symbol units cover all 37 symbols exactly once', () => {
 check('curriculum puts medials before finals while symbol audio indices stay fixed', () => {
   assert.equal(ORDER.join(''), 'ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦㄧㄨㄩ');
   assert.deepEqual(Array.from(UNITS, u => u.kind === 'sym' ? u.tag : u.kind),
-    ['聲母', '聲母', '聲母', '聲母', '聲母', '聲母', '介音', '韻母', '韻母', '韻母', 'blend', 'tone']);
+    ['聲母', '聲母', '聲母', '聲母', '聲母', '聲母', '介音', '韻母', '韻母', '韻母', 'blend', 'blend', 'tone']);
   assert.equal(UNITS.find(u => u.sy === 'ㄧㄨㄩ').name, '介音');
   assert.equal(new Set(LESSONS.map(l => l.key)).size, LESSONS.length);
   ORDER.forEach((s, i) => assert.equal(ctx.C['sym:' + s], `sym/${String(i + 1).padStart(2, '0')}.mp3`, s));
@@ -119,9 +119,9 @@ check('tone sets have four matching bases in first-to-fourth tone order', () => 
   }
 });
 
-check('blends pair a consonant with a vowel or medial from ORDER', () => {
+check('blends pair a consonant or medial with a vowel (or a consonant with a medial) from ORDER', () => {
   const symbolsFor = tags => new Set(UNITS.filter(u => u.kind === 'sym' && tags.includes(u.tag)).flatMap(u => [...u.sy]));
-  const consonants = symbolsFor(['聲母']), vowels = symbolsFor(['韻母', '介音']);
+  const consonants = symbolsFor(['聲母']), vowels = symbolsFor(['韻母', '介音']), medials = symbolsFor(['介音']);
   const units = UNITS.filter(u => u.kind === 'blend');
   assert.ok(units.length > 0, 'no blend units');
   for (const unit of units) {
@@ -131,7 +131,7 @@ check('blends pair a consonant with a vowel or medial from ORDER', () => {
       for (const item of set) {
         assert.equal(item.length, 3, `invalid blend: ${JSON.stringify(item)}`);
         const [a, b, ch] = item;
-        assert.ok(ORDER.includes(a) && consonants.has(a), `${ch}: ${a} is not a consonant`);
+        assert.ok(ORDER.includes(a) && (consonants.has(a) || medials.has(a)), `${ch}: ${a} is not a consonant or medial`);
         assert.ok(ORDER.includes(b) && vowels.has(b), `${ch}: ${b} is not a vowel or medial`);
       }
     }
