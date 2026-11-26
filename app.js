@@ -365,7 +365,7 @@ function buildSteps(L){
   if(L.type==='sym'){const s=L.s, peers=[...u.sy];
     return [{t:'intro',s},{t:'listen',s,peers},{t:'trace',s},{t:'picture',s,peers},{t:'listenPic',s,peers},{t:'trace',s}];}
   if(L.type==='review'){const sy=[...u.sy];const a=shuffle(sy);
-    return [{t:'bubbles',s:a[0],peers:sy},{t:'picture',s:a[1],peers:sy},{t:'listen',s:a[2],peers:sy},{t:'picture',s:a[0],peers:sy},{t:'bubbles',s:a[1],peers:sy},{t:'listen',s:a[3%a.length],peers:sy},{t:'trace',s:pick(sy)}];}
+    return [{t:'bubbles',s:a[0],peers:sy},{t:'picture',s:a[1],peers:sy},{t:'listen',s:a[2],peers:sy},{t:'match',syms:a.slice(0,3),peers:sy},{t:'bubbles',s:a[1],peers:sy},{t:'listen',s:a[3%a.length],peers:sy},{t:'trace',s:pick(sy)}];}
   if(L.type==='blend'){const set=shuffle(L.set);
     return [{t:'blendDemo',it:set[0]},{t:'blendDemo',it:set[1]},{t:'blendPick',it:set[2],set},{t:'blendBuild',it:set[3],set},{t:'blendPick',it:set[4],set},{t:'blendBuild',it:set[5],set}];}
   if(L.type==='tone'){const set=L.set;
@@ -573,6 +573,28 @@ const STEPS={
   const sp=speakerBtn(()=>saySym(s));stage.append(sp);
   stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>correct(),{symbols:[s],cls:'withpic',render:it=>`<span class="zy1">${it}</span><span class="pic1" aria-hidden="true">${pic(it)}</span>`,label:()=>laterSay(400,()=>saySym(s))}));
   voiceSeq(['聽一聽，是哪一個注音？',()=>sp.play()]);
+ },
+ /* 5-7: match each symbol with the picture of its example word. Tapping a card plays its sound or word. */
+ match(stage,{syms}){
+  const text='把注音和圖片連在一起！';let left=null,right=null,found=0;
+  stage.append(prompt(text));
+  const grid=h(`<div class="match"></div>`);
+  const L=h(`<div class="mcol"></div>`),R=h(`<div class="mcol"></div>`);grid.append(L,R);stage.append(grid);
+  const cards=[];
+  const mk=(side,s)=>{const b=h(`<button class="mc ${side}" aria-label="${side==='sym'?s:wordText(s)}">${side==='sym'?`<span class="zy1">${s}</span>`:`<span class="pic1" aria-hidden="true">${pic(s)}</span>`}</button>`);
+    b.dataset.s=s;
+    b.onclick=()=>{if(b.classList.contains('ok'))return;
+      AUD++;(side==='sym'?saySym(s):speak(wordText(s)));
+      const mine=side==='sym'?'left':'right';
+      if(side==='sym'){left&&left.classList.remove('sel');left=b}else{right&&right.classList.remove('sel');right=b}
+      b.classList.add('sel');
+      if(left&&right){const a=left,c=right;left=right=null;
+        if(a.dataset.s===c.dataset.s){[a,c].forEach(x=>{x.classList.remove('sel');x.classList.add('ok')});sfx.pop();recordPractice([a.dataset.s],true);found++;
+          if(found===syms.length)later(500,()=>correct('全部配對成功！'))}
+        else{[a,c].forEach(x=>{x.classList.remove('sel');x.classList.remove('no');void x.offsetWidth;x.classList.add('no')});recordPractice([a.dataset.s],false);wrong()}}};
+    return b};
+  syms.forEach(s=>L.append(mk('sym',s)));shuffle([...syms]).forEach(s=>R.append(mk('pic',s)));
+  voiceSeq([text]);
  },
  picture(stage,{s,peers}){
   stage.append(prompt(`「${wordText(s)}」少了哪一個注音？`,'happy',[()=>speak(wordText(s),{rate:1}),'少了哪一個注音？']));

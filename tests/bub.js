@@ -18,4 +18,15 @@ const { chromium } = require('playwright');
       for(let a=0;a<c.length;a++)for(let b=a+1;b<c.length;b++)min=Math.min(min,Math.hypot(c[a][0]-c[b][0],c[a][1]-c[b][1]))}
     return {min,moved}});
   console.log((gap.min>=76&&gap.moved?'PASS':'FAIL')+' bubbles rise without overlapping: '+JSON.stringify(gap));
+  // 5-7: matching game in review lessons: a wrong pair is a mistake, right pairs lock, all pairs finish the step
+  const match=await pg.evaluate(async()=>{
+    if(LS)quitLesson();
+    const id=Object.keys(LESSONS).find(k=>LESSONS[k].type==='review');startLesson(id);
+    const i=LS.steps.findIndex(x=>x.t==='match');if(i<0)return 'no match step in review';LS.i=i;showStep();await new Promise(r=>setTimeout(r,50));
+    const sy=[...document.querySelectorAll('.mc.sym')],pics=[...document.querySelectorAll('.mc.pic')];
+    const m0=LS.mistakes;sy[0].click();pics.find(p=>p.dataset.s!==sy[0].dataset.s).click();const wrongCounted=LS.mistakes===m0+1;
+    for(const sb of sy){sb.click();document.querySelector(`.mc.pic[data-s="${sb.dataset.s}"]`).click()}
+    await new Promise(r=>setTimeout(r,900));
+    return {wrongCounted,locked:document.querySelectorAll('.mc.ok').length===sy.length*2,finished:document.querySelector('#fb').classList.contains('show')}});
+  console.log((match&&match.wrongCounted&&match.locked&&match.finished?'PASS':'FAIL')+' matching game: '+JSON.stringify(match));
   await b.close()})();
