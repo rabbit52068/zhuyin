@@ -29,7 +29,7 @@ const file='file://'+process.argv[2];
   // 0-4: answer right, then hammer Enter / taps
   const runRight=async()=>{const st=await pg.evaluate(()=>LS.steps[LS.i]);return st};
   const st=await runRight(); console.log('step obj',JSON.stringify(st));
-  if(['listen','picture'].includes(st.t)){
+  if(['listen','listenPic','picture'].includes(st.t)){
     const i0=await pg.evaluate(()=>LS.i);
     await pg.evaluate(s=>[...document.querySelectorAll('.opt')].find(b=>b.textContent.trim()===s).click(),st.s);
     for(let k=0;k<6;k++) await pg.keyboard.press('Enter');          // immediately: should be ignored (<400ms)

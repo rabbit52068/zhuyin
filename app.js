@@ -363,7 +363,7 @@ function buildSteps(L){
     return L.syms.map((s,i)=>({t:['listen','bubbles','picture'][i%3],s,peers}));}
   const u=UNITS[L.ui];
   if(L.type==='sym'){const s=L.s, peers=[...u.sy];
-    return [{t:'intro',s},{t:'listen',s,peers},{t:'trace',s},{t:'picture',s,peers},{t:'listen',s,peers},{t:'trace',s}];}
+    return [{t:'intro',s},{t:'listen',s,peers},{t:'trace',s},{t:'picture',s,peers},{t:'listenPic',s,peers},{t:'trace',s}];}
   if(L.type==='review'){const sy=[...u.sy];const a=shuffle(sy);
     return [{t:'bubbles',s:a[0],peers:sy},{t:'picture',s:a[1],peers:sy},{t:'listen',s:a[2],peers:sy},{t:'picture',s:a[0],peers:sy},{t:'bubbles',s:a[1],peers:sy},{t:'listen',s:a[3%a.length],peers:sy},{t:'trace',s:pick(sy)}];}
   if(L.type==='blend'){const set=shuffle(L.set);
@@ -530,11 +530,11 @@ function flyToProg(el){
   const an=f.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${dx}px,${dy}px) scale(.2)`,opacity:.2}],{duration:600,easing:'cubic-bezier(.5,0,.8,.4)'});
   an.onfinish=an.oncancel=()=>f.remove();
 }
-function optionRow(items,target,onRight,{wide=false,label=null,render=null,symbols=[]}={}){
+function optionRow(items,target,onRight,{wide=false,label=null,render=null,symbols=[],cls=''}={}){
   const row=h(`<div class="opts"></div>`);let done=false,miss=0,tb=null;
   const win=b=>{done=true;b.classList.remove('glow');b.classList.add('ok');row.querySelectorAll('.opt').forEach(o=>{if(o!==b)o.classList.add('dim')})};
   shuffle(items).forEach(it=>{
-    const b=h(`<button class="opt ${wide?'wide':''}"></button>`);
+    const b=h(`<button class="opt ${wide?'wide':''} ${cls}"></button>`);
     b.innerHTML=render?render(it):it;
     if(it===target)tb=b;
     b.onclick=async()=>{if(done)return;
@@ -565,6 +565,13 @@ const STEPS={
   stage.append(prompt('聽一聽，是哪一個注音？'));
   const sp=speakerBtn(()=>saySym(s));stage.append(sp);
   stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>correct(),{symbols:[s],label:()=>laterSay(400,()=>saySym(s))}));
+  voiceSeq(['聽一聽，是哪一個注音？',()=>sp.play()]);
+ },
+ /* 5-6: the second listening question shows each choice with its example picture, so the sound, the letter and the word meet */
+ listenPic(stage,{s,peers}){
+  stage.append(prompt('聽一聽，是哪一個注音？'));
+  const sp=speakerBtn(()=>saySym(s));stage.append(sp);
+  stage.append(optionRow([s,...distractors(s,2,peers)],s,()=>correct(),{symbols:[s],cls:'withpic',render:it=>`<span class="zy1">${it}</span><span class="pic1" aria-hidden="true">${pic(it)}</span>`,label:()=>laterSay(400,()=>saySym(s))}));
   voiceSeq(['聽一聽，是哪一個注音？',()=>sp.play()]);
  },
  picture(stage,{s,peers}){
