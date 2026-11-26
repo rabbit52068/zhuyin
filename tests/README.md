@@ -10,7 +10,7 @@
 | `stage3.js` | 3-3 review order (most-missed and stale symbols first), 3-4 daily task (3 steps, no stars, done for today), 3-6 break reminder after 15 minutes (continue, rest, parent switch) |
 | `report.js` | Parent report counts/rate ranking, practice date, empty state, live reset, gate protection and modal focus/Escape |
 | `test.js` | Stage 0: document head, start tip, speaker button, old speech after a step change, Enter spam, `finish()` twice |
-| `bub.js` | Stage 0: extra taps after all bubbles are found |
+| `bub.js` | Stage 0: extra taps after all bubbles are found; 5-5: bubbles rise and never overlap |
 | `voice.js` | 7-1: every spoken line is listed in `tools/voice-lines.js`, clips play, missing clips fall back to speech synthesis |
 | `test1.js` | Stage 1: spoken prompts, encouragement, answer after two misses, tracing, stars, exit dialog, parent check, node size |
 | `trace.js` | Three fixed `traceScore` cases: empty strokes, a matching stroke, and an added off-target stroke that lowers precision |
