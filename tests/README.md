@@ -13,6 +13,7 @@
 | `bub.js` | Stage 0: extra taps after all bubbles are found; 5-5: bubbles rise and never overlap; 5-7: matching game in review lessons |
 | `voice.js` | 7-1: every spoken line is listed in `tools/voice-lines.js`, clips play, missing clips fall back to speech synthesis |
 | `test1.js` | Stage 1: spoken prompts, encouragement, answer after two misses, tracing, stars, exit dialog, parent check, node size |
+| `pwa.js` | 7-6: manifest and icons, the service worker caches the game and every recording, and the game and its clips load offline (uses a local Node server because service workers need http://localhost) |
 | `trace.js` | Three fixed `traceScore` cases: empty strokes, a matching stroke, and an added off-target stroke that lowers precision |
 
 Run the data checks with no dependencies:
