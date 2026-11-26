@@ -926,3 +926,6 @@ $('#tabPath').onkeydown=tabKey;$('#tabChart').onkeydown=tabKey;
 $('#setBtn').onclick=()=>parentGate(openSettings,$('#setBtn'));
 document.addEventListener('click',readTextClick);
 render();
+
+/* 7-6: offline use. Only on http(s); the file:// copy and sandboxed previews skip it quietly. */
+if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
