@@ -594,6 +594,8 @@ const STEPS={
     redraw();
   }
   const lw=()=>W*.085;
+  /* 5-2: once the letter is done it turns into its picture (after a short pause so the child sees their writing first) */
+  const alive=()=>box.append(h(`<div class="alive" aria-hidden="true" style="font-size:${(W*.62).toFixed(0)}px">${pic(s)}</div>`));
   function redraw(){uc.clearRect(0,0,W,W);uc.lineCap='round';uc.lineJoin='round';uc.lineWidth=lw();uc.strokeStyle=passed?cssv('--leaf'):cssv('--ink-stroke');
     strokes.forEach(st=>{uc.beginPath();st.forEach((p,i)=>i?uc.lineTo(p.x,p.y):uc.moveTo(p.x,p.y));if(st.length===1)uc.lineTo(st[0].x+.1,st[0].y);uc.stroke()})}
   const pt=e=>{const r=u.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*W/r.height}};
@@ -604,10 +606,10 @@ const STEPS={
   ok.onclick=()=>{if(passed)return;
     if(!strokes.length){setHint('先用手指沿著藍色的字畫畫看');sayTap(['先用手指沿著藍色的字畫畫看']);return}
     const {cov,prec}=traceScore(s,strokes,W,lw());
-    if(cov>=.45&&prec>=.5){recordPractice([s],true);passed=true;redraw();setHint('');correct(cov>.75?'寫得好漂亮！':'寫得很好！')}
+    if(cov>=.45&&prec>=.5){recordPractice([s],true);passed=true;redraw();setHint('');alive();correct(cov>.75?'寫得好漂亮！':'寫得很好！')}
     else{
       recordPractice([s],false);
-      if(++fails>=2){passed=true;redraw();setHint('');correct('很努力喔！我們繼續！')}
+      if(++fails>=2){passed=true;redraw();setHint('');alive();correct('很努力喔！我們繼續！')}
       else{wrong({count:false});setHint(cov<.45?'還有一些地方沒有寫到，再試一次！':'要沿著藍色的字寫喔，再試一次！');setTimeout(()=>{strokes=[];redraw()},700)}
     }
   };
@@ -622,9 +624,17 @@ const STEPS={
   const pond=h(`<div class="pond"></div>`);stage.append(pond);
   const others=distractors(s,5,peers);
   const items=shuffle([s,s,s,...others.slice(0,5)]);
+  /* 5-5: bubbles rise from the bottom at one shared speed, in three lanes with even spacing, so they never overlap.
+     Reduced motion keeps them still on the old grid. */
+  const still=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const W=pond.clientWidth||320,H=pond.clientHeight||300,L=H+90,V=26,lanes=[W*.17,W*.5,W*.83];
+  const laneOf=items.map((_,i)=>i%3),laneN=[0,1,2].map(c=>laneOf.filter(x=>x===c).length),laneK=[0,0,0];
   const cells=shuffle([...Array(9).keys()]).slice(0,items.length);
-  items.forEach((it,i)=>{const c=cells[i], cx=(c%3)*33+17+(Math.random()*8-4), cy=Math.floor(c/3)*31+18+(Math.random()*8-4);
-    const b=h(`<button class="bub" style="left:${cx}%;top:${cy}%;--d:${(2+Math.random()*2).toFixed(2)}s;--dx:${(Math.random()*20-10)|0}px;--dy:${(Math.random()*20-10)|0}px">${it}</button>`);
+  const moving=[];
+  items.forEach((it,i)=>{const c=cells[i];let style;
+    if(still){style=`left:${(c%3)*33+17+(Math.random()*8-4)}%;top:${Math.floor(c/3)*31+18+(Math.random()*8-4)}%;--dy:0px`}
+    else{const ln=laneOf[i],k=laneK[ln]++;style=`left:${lanes[ln].toFixed(1)}px;top:0px;--dy:0px`;moving.push({i,ph:(k/laneN[ln])*L+(Math.random()*16-8)+ln*37})}
+    const b=h(`<button class="bub" style="${style};--d:${(2+Math.random()*2).toFixed(2)}s;--dx:${(Math.random()*12-6)|0}px">${it}</button>`);
     b.onclick=()=>{if(got>=need||b.classList.contains('pop'))return;
       if(it===s){sfx.pop();b.classList.add('pop');got++;tg.querySelector('.count').textContent=`${got} / ${need}`;
         if(got===need){recordPractice([s],true);pond.classList.add('done');later(300,()=>correct('全部找到了！'))}}
@@ -632,6 +642,11 @@ const STEPS={
         if(++miss>=2)pond.querySelectorAll('.bub').forEach(x=>{if(x.textContent===s&&!x.classList.contains('pop'))x.classList.add('glow')});
         recordPractice([s],false);const w=wrong();w.then(ok=>{if(ok&&AUD===w.g)laterSay(300,()=>saySym(s))})}};
     pond.appendChild(b)});
+  if(moving.length){const els=[...pond.querySelectorAll('.bub')],t0=performance.now(),t=STEP;
+    const place=now=>{if(!pond.isConnected||!live(t))return;
+      for(const m of moving){els[m.i].style.top=(H+45-((m.ph+V*(now-t0)/1000)%L)).toFixed(1)+'px'}
+      requestAnimationFrame(place)};
+    place(t0)}
   voiceSeq(['把所有的這個注音戳破！',()=>saySym(s)]);
  },
  blendDemo(stage,{it:[a,b,ch]}){
