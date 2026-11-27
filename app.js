@@ -431,8 +431,8 @@ async function correct(text,say){
   if(!LS.demo) sfx.ok();
   if(!text&&!LS.demo)text=pick(PRAISE);
   say=say||[text||'下次一定可以！'];
-  if(LS.demo)say=['答案在這裡！',...say.filter(x=>x!=='對！').map(x=>typeof x==='string'?x.replace(/^對！/,''):x)];
-  const p=LS.demo?'答案在這裡！'+(text?text.replace(/^對！/,''):'下次一定可以！'):text;
+  if(LS.demo)say=['答案在這裡！',...say.filter(x=>x!=='對！'&&x!=='答對了！').map(x=>typeof x==='string'?x.replace(/^(答對了|對)！/,''):x)];
+  const p=LS.demo?'答案在這裡！'+(text?text.replace(/^(答對了|對)！/,''):'下次一定可以！'):text;
   LS.layer.querySelector('#fbTxt').textContent=p;
   const fb=LS.layer.querySelector('#fb');fb.inert=false;fb.classList.add('show');LS.fbAt=Date.now();
   LS.layer.querySelector('#fbGo').focus({preventScroll:true});
@@ -700,7 +700,7 @@ const STEPS={
   stage.append(prompt('聽一聽，是哪一個拼音？'));
   const sp=speakerBtn(()=>speak(ch,{rate:.7}));stage.append(sp);
   const others=shuffle(set.filter(x=>x[2]!==ch&&x[0]+x[1]!==a+b)).slice(0,2).map(x=>x[0]+x[1]);
-  stage.append(optionRow([a+b,...others],a+b,()=>{correct(`對！${a}${b}，${ch}`,['對！',()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{symbols:simpleSymbols(a+b),wide:true,label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
+  stage.append(optionRow([a+b,...others],a+b,()=>{correct(`答對了！${a}${b}，${ch}`,['答對了！',()=>saySym(a),()=>saySym(b),()=>speak(ch,{rate:.7})])},{symbols:simpleSymbols(a+b),wide:true,label:()=>laterSay(400,()=>speak(ch,{rate:.7}))}));
   voiceSeq(['聽一聽，是哪一個拼音？',()=>sp.play()]);
  },
  blendBuild(stage,{it:[a,b,ch]}){
@@ -714,14 +714,14 @@ const STEPS={
   voiceSeq([()=>speak(ch,{rate:.7}),'前面要放哪一個注音？']);
  },
  toneDemo(stage,{set}){
-  stage.append(prompt('同一個拼音，有四種唱法，點點看！','happy'));
+  stage.append(prompt('同一個拼音，有四種唸法，點點看！','happy'));
   const paths=['M4 8h36','M4 26L40 6','M4 8Q22 34 40 6','M4 6L40 26'];
   const g=h(`<div class="tones"></div>`);
   set.forEach(([ch,zy],k)=>{const b=h(`<button class="tcard"><span>${wz(ch,zy)}</span><span><svg viewBox="0 0 44 32"><path d="${paths[k]}"/></svg><small>${TONE_NAME[k]}</small></span></button>`);
     b.onclick=tap(()=>speak(ch,{rate:.7}));g.appendChild(b)});
   stage.append(g);
   const go=h(`<button class="btn go">我聽完了</button>`);go.onclick=next;stage.append(go);
-  voiceSeq(['同一個拼音，有四種唱法，點點看！',...set.map(([ch])=>()=>speak(ch,{rate:.7}))]);
+  voiceSeq(['同一個拼音，有四種唸法，點點看！',...set.map(([ch])=>()=>speak(ch,{rate:.7}))]);
  },
  tonePick(stage,{set,k}){
   const [ch,zy]=set[k];
